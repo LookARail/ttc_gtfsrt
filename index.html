@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TTC GTFS-RT – Live Vehicles (Client-only)</title>
+
+<!-- Leaflet CSS -->
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+  crossorigin=""
+/>
+
+<!-- Custom styles -->
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="map"></div>
+  <div id="status" class="status-bar">
+    <span class="status-dot" aria-hidden="true"></span>
+    <span id="statusText">Initializing…</span>
+  </div>
+  <div class="legend">
+    <div><b>TTC Vehicles</b> (GTFS‑RT + Static)</div>
+    <div>Update: every 10s</div>
+    <div>Time zone: Toronto (auto via Intl)</div>
+  </div>  <div id="vehicleCount" class="vehicle-count">— vehicles active</div>
+
+  <!-- Filter panel -->
+  <div id="filterPanel">
+    <div class="filter-title">Trip Filters:</div>
+    <div class="filter-section">
+      <div class="filter-row">
+        <label for="filterRouteType">Route Type:</label>
+        <button class="filter-select-all" id="selectAllRouteType">Select All</button>
+      </div>
+      <select multiple id="filterRouteType" class="filter-select" size="5"></select>
+    </div>
+    <div class="filter-section">
+      <div class="filter-row">
+        <label for="filterRouteName">Route Name:</label>
+        <button class="filter-select-all" id="selectAllRouteName">Select All</button>
+      </div>
+      <select multiple id="filterRouteName" class="filter-select" size="7"></select>
+    </div>
+    <button class="filter-apply" id="applyFilterBtn">Apply Filter</button>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- Main application script -->
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,55 @@
+name: Update GTFS Static Data
+
+on:
+  # Run daily at 2 AM UTC (9 PM Toronto time, accounting for EST/EDT)
+  schedule:
+    - cron: '0 2 * * *'
+  
+  # Allow manual triggering from Actions tab
+  workflow_dispatch:
+
+jobs:
+  process-gtfs:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # Allow pushing processed files
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/package.json
+      
+      - name: Install dependencies
+        working-directory: scripts
+        run: npm ci
+      
+      - name: Process GTFS data
+        working-directory: scripts
+        run: node process-gtfs.js
+      
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet data/ || echo "changes=true" >> $GITHUB_OUTPUT
+      
+      - name: Commit and push processed data
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/
+          git commit -m "chore: update GTFS static data [automated]"
+          git push
+      
+      - name: No changes detected
+        if: steps.check_changes.outputs.changes != 'true'
+        run: echo "No changes in GTFS data, skipping commit"
