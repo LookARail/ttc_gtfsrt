@@ -20,7 +20,8 @@
     stops: {},
     shapes: {},
     shapeRouteMap: {}, // shape_id -> route_id
-    stopTimesIndex: {}, // trip_id -> array of stop_time records (fields: sid, seq, arr, dep, hs?, pu?, do?)
+    metadata: null,  // Contains stop_times_files mapping (route_id -> filename)
+    stopTimesByRoute: {},  // Loaded on-demand: route_id -> { trip_id -> array of stop_time records }
     isLoaded: false
   };
   
@@ -70,14 +71,14 @@
     try {
       setStatus('Loading GTFS data...', null);
       
-      // Load all core files in parallel
-      const [routes, trips, stops, shapes, shapeRouteMap, stopTimesIndex] = await Promise.all([
+      // Load all core files in parallel (except stop-times which load on-demand)
+      const [routes, trips, stops, shapes, shapeRouteMap, metadata] = await Promise.all([
         fetch(`${GTFS_DATA_BASE_URL}/routes.json`).then(r => r.json()),
         fetch(`${GTFS_DATA_BASE_URL}/trips.json`).then(r => r.json()),
         fetch(`${GTFS_DATA_BASE_URL}/stops.json`).then(r => r.json()),
         fetch(`${GTFS_DATA_BASE_URL}/shapes.json`).then(r => r.json()),
         fetch(`${GTFS_DATA_BASE_URL}/shape-route-map.json`).then(r => r.json()),
-        fetch(`${GTFS_DATA_BASE_URL}/stop-times-index.json`).then(r => r.json())
+        fetch(`${GTFS_DATA_BASE_URL}/metadata.json`).then(r => r.json())
       ]);
       
       gtfsData.routes = routes;
@@ -85,7 +86,7 @@
       gtfsData.stops = stops;
       gtfsData.shapes = shapes;
       gtfsData.shapeRouteMap = shapeRouteMap;
-      gtfsData.stopTimesIndex = stopTimesIndex;
+      gtfsData.metadata = metadata;
       gtfsData.isLoaded = true;
       
       console.log('GTFS static data loaded successfully');
@@ -93,7 +94,7 @@
       console.log(`  Trips: ${Object.keys(trips).length}`);
       console.log(`  Stops: ${Object.keys(stops).length}`);
       console.log(`  Shapes: ${Object.keys(shapes).length}`);
-      console.log(`  Stop times indexed: ${Object.keys(stopTimesIndex).length} trips`);
+      console.log(`  Stop-times files available: ${metadata.stats.stop_times_route_files} (loaded on-demand)`);
       
       // Log first 10 trip IDs for verification
       const tripIds = Object.keys(gtfsData.trips).slice(0, 10);
@@ -505,33 +506,64 @@
   /**
    * Request stop_times for trips matching the current filter
    */
-  function requestStopTimesForCurrentFilter() {
-    if (!gtfsData.isLoaded || !gtfsData.stopTimesIndex) return;
+  async function requestStopTimesForCurrentFilter() {
+    if (!gtfsData.isLoaded || !gtfsData.metadata) return;
     
     const { routeIds } = activeFilter;
     const trips = gtfsData.trips;
     
-    // Collect trip_ids that match the filter
-    const tripIdsToLoad = [];
+    // Determine which routes we need to load
+    const routesToLoad = new Set();
     for (const tripId in trips) {
       const trip = trips[tripId];
       if (passesFilter(trip.route_id)) {
-        tripIdsToLoad.push(tripId);
+        routesToLoad.add(trip.route_id);
       }
     }
     
-    console.log(`Loading stop_times for ${tripIdsToLoad.length} trips from index`);
+    console.log(`Need stop_times for ${routesToLoad.size} routes`);
     
-    // Extract stop_times from the pre-loaded index
+    // Load stop-times for routes that aren't already loaded
+    const loadPromises = [];
+    for (const routeId of routesToLoad) {
+      if (!gtfsData.stopTimesByRoute[routeId]) {
+        const filename = gtfsData.metadata.stop_times_files[routeId];
+        if (filename) {
+          const promise = fetch(`${GTFS_DATA_BASE_URL}/${filename}`)
+            .then(r => r.json())
+            .then(data => {
+              gtfsData.stopTimesByRoute[routeId] = data;
+              console.log(`✓ Loaded stop-times for route ${routeId}`);
+            })
+            .catch(err => {
+              console.warn(`Failed to load stop-times for route ${routeId}:`, err);
+            });
+          loadPromises.push(promise);
+        }
+      }
+    }
+    
+    // Wait for all loads to complete
+    if (loadPromises.length > 0) {
+      console.log(`Loading ${loadPromises.length} stop-times files...`);
+      await Promise.all(loadPromises);
+    }
+    
+    // Extract stop_times from the loaded route data
     stopTimes = [];
-    for (const tripId of tripIdsToLoad) {
-      const tripStopTimes = gtfsData.stopTimesIndex[tripId];
-      if (tripStopTimes && Array.isArray(tripStopTimes)) {
-        stopTimes.push(...tripStopTimes);
+    for (const routeId of routesToLoad) {
+      const routeStopTimes = gtfsData.stopTimesByRoute[routeId];
+      if (routeStopTimes) {
+        for (const tripId in routeStopTimes) {
+          const trip = trips[tripId];
+          if (trip && passesFilter(trip.route_id)) {
+            stopTimes.push(...routeStopTimes[tripId]);
+          }
+        }
       }
     }
     
-    console.log(`Loaded ${stopTimes.length} stop_time records from index`);
+    console.log(`Loaded ${stopTimes.length} stop_time records from ${routesToLoad.size} routes`);
     
     // Plot stops immediately (shapes already plotted and remain visible)
     plotStops();

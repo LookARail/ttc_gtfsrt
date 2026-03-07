@@ -227,8 +227,8 @@ function processShapes(gtfsDir) {
  * Build stop_times index (trip_id -> array of row data)
  * This allows selective extraction without parsing the entire file client-side
  */
-function processStopTimesIndex(gtfsDir) {
-  console.log('Processing stop_times.txt (building index)...');
+function processStopTimesIndexByRoute(gtfsDir, trips) {
+  console.log('Processing stop_times.txt (building index by route)...');
   const stopTimesFile = path.join(gtfsDir, 'stop_times.txt');
   if (!fs.existsSync(stopTimesFile)) {
     console.warn('⚠ stop_times.txt not found');
@@ -236,14 +236,15 @@ function processStopTimesIndex(gtfsDir) {
   }
   
   const rows = parseCsvFile(stopTimesFile);
-  const index = {};
   
+  // First pass: build trip_id -> stop_times mapping
+  const tripIndex = {};
   rows.forEach(st => {
     const tripId = st.trip_id;
     if (!tripId) return;
     
-    if (!index[tripId]) {
-      index[tripId] = [];
+    if (!tripIndex[tripId]) {
+      tripIndex[tripId] = [];
     }
     
     // Optimize: Remove redundant trip_id, use short field names, omit defaults
@@ -259,16 +260,42 @@ function processStopTimesIndex(gtfsDir) {
     if (st.pickup_type && st.pickup_type !== '0') stopTime.pu = parseInt(st.pickup_type);
     if (st.drop_off_type && st.drop_off_type !== '0') stopTime.do = parseInt(st.drop_off_type);
     
-    index[tripId].push(stopTime);
+    tripIndex[tripId].push(stopTime);
   });
   
   // Sort each trip's stop_times by stop_sequence
-  Object.keys(index).forEach(tripId => {
-    index[tripId].sort((a, b) => a.seq - b.seq);
+  Object.keys(tripIndex).forEach(tripId => {
+    tripIndex[tripId].sort((a, b) => a.seq - b.seq);
   });
   
-  console.log(`✓ Indexed stop_times for ${Object.keys(index).length} trips`);
-  return index;
+  console.log(`✓ Indexed stop_times for ${Object.keys(tripIndex).length} trips`);
+  
+  // Second pass: group by route_id
+  console.log('Grouping stop_times by route...');
+  const routeIndex = {};
+  let tripsWithoutRoute = 0;
+  
+  Object.keys(tripIndex).forEach(tripId => {
+    const trip = trips[tripId];
+    if (!trip || !trip.route_id) {
+      tripsWithoutRoute++;
+      return;
+    }
+    
+    const routeId = trip.route_id;
+    if (!routeIndex[routeId]) {
+      routeIndex[routeId] = {};
+    }
+    
+    routeIndex[routeId][tripId] = tripIndex[tripId];
+  });
+  
+  if (tripsWithoutRoute > 0) {
+    console.warn(`⚠ ${tripsWithoutRoute} trips without route_id`);
+  }
+  console.log(`✓ Grouped into ${Object.keys(routeIndex).length} routes`);
+  
+  return routeIndex;
 }
 
 /**
@@ -282,6 +309,29 @@ function writeJsonFile(filename, data, minify = false) {
   
   const sizeKB = (fs.statSync(outputPath).size / 1024).toFixed(2);
   console.log(`✓ Written ${filename} (${sizeKB} KB)`);
+}
+
+/**
+ * Clean up old stop-times files
+ */
+function cleanupOldStopTimesFiles() {
+  console.log('Cleaning up old stop-times files...');
+  if (!fs.existsSync(OUTPUT_DIR)) {
+    return;
+  }
+  
+  const files = fs.readdirSync(OUTPUT_DIR);
+  const stopTimesFiles = files.filter(f => f.startsWith('stop-times-') && f.endsWith('.json'));
+  
+  stopTimesFiles.forEach(file => {
+    fs.unlinkSync(path.join(OUTPUT_DIR, file));
+  });
+  
+  if (stopTimesFiles.length > 0) {
+    console.log(`✓ Removed ${stopTimesFiles.length} old stop-times files`);
+  } else {
+    console.log('✓ No old stop-times files to remove');
+  }
 }
 
 /**
@@ -312,18 +362,32 @@ async function processGTFS() {
     const { trips, shapeRouteMap } = processTrips(gtfsDir);
     const stops = processStops(gtfsDir);
     const shapes = processShapes(gtfsDir);
-    const stopTimesIndex = processStopTimesIndex(gtfsDir);
+    const stopTimesByRoute = processStopTimesIndexByRoute(gtfsDir, trips);
     
     console.log('');
     
-    // Step 4: Write output files
+    // Step 4: Clean up old stop-times files before writing new ones
+    cleanupOldStopTimesFiles();
+    console.log('');
+    
+    // Step 5: Write output files
     console.log('Writing output files...');
     writeJsonFile('routes.json', routes);
     writeJsonFile('trips.json', trips, true);  // Minify large file
     writeJsonFile('stops.json', stops);
     writeJsonFile('shapes.json', shapes, true);  // Minify large file
     writeJsonFile('shape-route-map.json', shapeRouteMap);
-    writeJsonFile('stop-times-index.json', stopTimesIndex, true);  // Minify large file
+    
+    // Write per-route stop-times files
+    let totalStopTimesTrips = 0;
+    Object.keys(stopTimesByRoute).forEach(routeId => {
+      const routeStopTimes = stopTimesByRoute[routeId];
+      totalStopTimesTrips += Object.keys(routeStopTimes).length;
+      // Sanitize route_id for filename (remove special characters)
+      const safeRouteId = routeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      writeJsonFile(`stop-times-route-${safeRouteId}.json`, routeStopTimes, true);
+    });
+    console.log(`✓ Written ${Object.keys(stopTimesByRoute).length} stop-times files for ${totalStopTimesTrips} trips`);
     
     // Write metadata
     const metadata = {
@@ -334,12 +398,19 @@ async function processGTFS() {
         trips: Object.keys(trips).length,
         stops: Object.keys(stops).length,
         shapes: Object.keys(shapes).length,
-        stop_times_trips: Object.keys(stopTimesIndex).length
-      }
+        stop_times_trips: totalStopTimesTrips,
+        stop_times_route_files: Object.keys(stopTimesByRoute).length
+      },
+      // Map of route_id to filename for easy lookup
+      stop_times_files: Object.keys(stopTimesByRoute).reduce((acc, routeId) => {
+        const safeRouteId = routeId.replace(/[^a-zA-Z0-9_-]/g, '_');
+        acc[routeId] = `stop-times-route-${safeRouteId}.json`;
+        return acc;
+      }, {})
     };
     writeJsonFile('metadata.json', metadata);
     
-    // Step 5: Cleanup temp files
+    // Step 6: Cleanup temp files
     console.log('\nCleaning up temporary files...');
     fs.rmSync(TEMP_DIR, { recursive: true, force: true });
     console.log('✓ Cleanup complete');
