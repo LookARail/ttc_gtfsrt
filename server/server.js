@@ -22,7 +22,15 @@ async function fetchGtfsRtData() {
   
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch("https://bustime.ttc.ca/gtfsrt/vehicles");
+      // Add 5-second timeout to fetch
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch("https://bustime.ttc.ca/gtfsrt/vehicles", {
+        signal: controller.signal
+      });
+      clearTimeout(timeout);
+      
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       
       const buffer = await response.arrayBuffer();
@@ -80,7 +88,16 @@ async function prewarmCache() {
   }
 }
 
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
+async function main() {
+  // Pre-warm cache BEFORE starting server
   await prewarmCache();
+  
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+main().catch(err => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
 });

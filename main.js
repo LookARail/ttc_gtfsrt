@@ -162,6 +162,9 @@
     const shapeRouteMap = gtfsData.shapeRouteMap; // shape_id -> route_id
     const routes       = gtfsData.routes;        // route_id -> route
 
+    let shapesPlotted = 0;
+    let colorsUsed = { fromRouteColor: 0, fromRouteType: 0, fallback: 0 };
+
     for (const shapeId in shapes) {
       const points = shapes[shapeId];
       if (!points || points.length < 2) continue;
@@ -169,25 +172,32 @@
       const routeId = shapeRouteMap[shapeId];
       const route   = routeId ? routes[routeId] : null;
 
+      // Apply filter FIRST - skip shapes that don't match filter
+      if (!passesFilter(routeId)) continue;
+
       let color  = '#888888';
       let weight = 2;
       let opacity = 0.55;
 
       if (route) {
         // Use route_color from GTFS if present (strip leading # in case)
-        if (route.route_color) {
+        // Check for non-empty string explicitly
+        if (route.route_color && route.route_color.length > 0) {
           color = route.route_color.startsWith('#')
             ? route.route_color
             : `#${route.route_color}`;
+          colorsUsed.fromRouteColor++;
         } else {
           color = ROUTE_TYPE_DEFAULT_COLORS[route.route_type] || '#888888';
+          colorsUsed.fromRouteType++;
         }
         // Streetcar / tram lines drawn slightly thicker
         if (route.route_type === 0) { weight = 3; opacity = 0.65; }
+      } else {
+        colorsUsed.fallback++;
       }
 
-      // Apply filter - only plot shapes for matching routes
-      if (!passesFilter(routeId)) continue;
+      shapesPlotted++;
 
       const polyline = L.polyline(
         points.map(p => [p.lat, p.lon]),
