@@ -1,0 +1,15 @@
+# Recorded RT Data
+
+This folder stores daily RT trip recordings exported from the Render server.
+
+Files are automatically created by the GitHub Actions workflow:
+- **Automated**: Daily at 8 AM UTC (3 AM Toronto) - exports data and clears server cache
+- **Manual**: Can be triggered manually from Actions tab - exports data without clearing cache
+
+Each file is named `YYYY-MM-DD.json` and contains:
+- `recordedData`: Trip-by-trip stop arrivals with actual and scheduled times
+- `scheduledTimesCache`: Compact cache of scheduled times for all trips
+- `exportedAt`: Timestamp of export
+- `stats`: Summary statistics (trips, stops, routes)
+
+**Note**: Manual test runs may overwrite existing same-day files.

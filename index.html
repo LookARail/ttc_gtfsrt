@@ -22,11 +22,10 @@
     <span class="status-dot" aria-hidden="true"></span>
     <span id="statusText">Initializing…</span>
   </div>
-  <div class="legend">
-    <div><b>TTC Vehicles</b> (GTFS‑RT + Static)</div>
-    <div>Update: every 10s</div>
-    <div>Time zone: Toronto (auto via Intl)</div>
-  </div>  <div id="vehicleCount" class="vehicle-count">— vehicles active</div>
+  <div id="vehicleCount" class="vehicle-count">— vehicles active</div>
+  
+  <!-- Toggle button for RT Data Recorder -->
+  <button id="toggleRecorderBtn" class="toggle-recorder-btn" title="Toggle RT Data Recorder">📊 RT Recorder</button>
 
   <!-- Filter panel -->
   <div id="filterPanel">
@@ -49,7 +48,8 @@
   </div>
 
   <!-- RT Data Recorder Panel -->
-  <div id="recorderPanel">
+  <div id="recorderPanel" class="hidden">
+    <button id="closeRecorderBtn" class="close-recorder-btn" title="Close">✕</button>
     <div class="recorder-title">RT Data Recorder</div>
     <div class="recorder-controls">
       <button class="recorder-btn" id="startRecordBtn">Start Collecting Trip Data</button>

@@ -1,0 +1,87 @@
+name: Export RT Trip Recordings
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8 AM UTC (3 AM Toronto)
+  workflow_dispatch:
+    inputs:
+      clearCache:
+        description: 'Clear server cache after export'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Wake up server
+        run: |
+          echo "Pinging server to ensure it's awake..."
+          curl -f https://ttc-gtfsrt.onrender.com/vehicles || echo "Server may be starting..."
+          
+      - name: Wait for server warmup
+        run: sleep 10
+      
+      - name: Export trip data from server
+        id: export
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          echo "Fetching trip data for $DATE..."
+          
+          # Fetch data with 2-minute timeout
+          curl -f -m 120 https://ttc-gtfsrt.onrender.com/export-trip-data > recordedRTData/$DATE.json
+          
+          # Check file size
+          SIZE=$(stat -f%z recordedRTData/$DATE.json 2>/dev/null || stat -c%s recordedRTData/$DATE.json)
+          echo "Exported file size: $SIZE bytes"
+          echo "filename=$DATE.json" >> $GITHUB_OUTPUT
+        continue-on-error: false
+      
+      - name: Commit and push to repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add recordedRTData/
+          
+          # Check if there are changes to commit
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: export trip recordings for $(date +%Y-%m-%d)"
+            git push
+            echo "Successfully pushed trip recordings"
+          fi
+      
+      - name: Clear server cache (scheduled runs only)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.clearCache == true)
+        run: |
+          echo "Clearing server cache..."
+          RESPONSE=$(curl -X POST -H "Content-Type: application/json" https://ttc-gtfsrt.onrender.com/clear-trip-data)
+          echo "Server response: $RESPONSE"
+          
+          # Parse response to confirm clearing
+          if echo "$RESPONSE" | grep -q '"status":"cleared"'; then
+            echo "✓ Server cache cleared successfully"
+          else
+            echo "⚠ Warning: Could not confirm cache clearing"
+            exit 1
+          fi
+      
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Export Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Date**: $(date +%Y-%m-%d)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **File**: recordedRTData/${{ steps.export.outputs.filename }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ inputs.clearCache }}" == "true" ]; then
+            echo "- **Cache Cleared**: Yes" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Cache Cleared**: No (manual test run)" >> $GITHUB_STEP_SUMMARY
+          fi

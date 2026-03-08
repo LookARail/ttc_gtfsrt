@@ -794,9 +794,7 @@
         }
       }
       // Keep last positions on failure is enabled; on success, prune missing
-      pruneMarkers(seen);
-      // Log a one-time linkage diagnostic once GTFS data is available
-      debugLinkSample();
+      pruneMarkers(seen);      
 
       // Determine staleness from max vehicle timestamp (if present)
       let newestTs = undefined;
@@ -823,33 +821,6 @@
     } finally {
       clearTimeout(timeout);
     }
-  }
-
-  // ---------------------------------------------------------------------------
-  // Debug: log linkage sample once after the first post-GTFS fetch
-  // ---------------------------------------------------------------------------
-  let _debugSampleDone = false;
-  function debugLinkSample() {
-    if (_debugSampleDone || !gtfsData.isLoaded || markers.size === 0) return;
-    _debugSampleDone = true;
-    const sample = [...markers.entries()].slice(0, 3);
-    console.groupCollapsed('%c[GTFS Debug] Static linkage sample – 3 vehicles', 'color:#9b59b6;font-weight:bold');
-    console.log('gtfsData.routes – first 5 keys:', Object.keys(gtfsData.routes).slice(0, 5));
-    console.log('gtfsData.trips  – first 5 keys:', Object.keys(gtfsData.trips).slice(0, 5));
-    for (const [vid, m] of sample) {
-      const raw = m._rtEntity;
-      const rtTripId  = raw?.vehicle?.trip?.tripId  || raw?.vehicle?.trip?.trip_id  || raw?.trip?.tripId  || raw?.trip?.trip_id  || null;
-      const rtRouteId = raw?.vehicle?.trip?.routeId || raw?.vehicle?.trip?.route_id || raw?.trip?.routeId || raw?.trip?.route_id || null;
-      console.groupCollapsed(`  Vehicle ${vid}`);
-      console.log('RT trip_id :', rtTripId);
-      console.log('RT route_id:', rtRouteId);
-      console.log('trips lookup :', gtfsData.trips[rtTripId]   ?? '(no match)');
-      console.log('routes lookup:', gtfsData.routes[rtRouteId] ?? '(no match)');
-      console.log('linkCache    :', staticLinkCache.get(vid)   ?? '(not cached)');
-      console.log('_routeType   :', m._routeType, ' | _routeId:', m._routeId);
-      console.groupEnd();
-    }
-    console.groupEnd();
   }
 
   // Initial fetch and schedule polling
@@ -913,8 +884,15 @@
   // Recording state
   let isRecording = false;
   let recordingIntervalId = null;
-  let recordedData = {}; // { tripId: { rid, stops: { stopSeq: { sid, seq, arr } } } }
+  let recordedData = {}; // { tripId: { rid, stops: { stopSeq: { sid, seq, arr, sch_arr, sch_dep } } } }
   let selectedTripId = null;
+  
+  // Scheduled times cache and loading queue
+  const seenTripIds = new Set(); // Track which trips we've already encountered
+  const pendingRoutesToLoad = new Set(); // Routes that need stop_times loaded
+  const scheduledTimesCache = {}; // { tripId: { stopSeq: { sch_arr, sch_dep } } }
+  const loadingRoutes = new Set(); // Routes currently being loaded
+  let totalRoutesQueued = 0; // Total unique routes ever queued
   
   // DOM elements
   const startRecordBtn = document.getElementById('startRecordBtn');
@@ -937,13 +915,123 @@
     }
   }
   
+  // Load and extract scheduled times for a route
+  async function loadAndExtractScheduledTimes(routeId) {
+    if (loadingRoutes.has(routeId)) return; // Already loading
+    loadingRoutes.add(routeId);
+    
+    try {
+      const filename = gtfsData.metadata.stop_times_files[routeId];
+      if (!filename) {
+        console.warn(`[RT Recorder] No stop_times file for route ${routeId}`);
+        return;
+      }
+      
+      console.log(`[RT Recorder] Loading scheduled times for route ${routeId}...`);
+      const resp = await fetch(`${GTFS_DATA_BASE_URL}/${filename}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      
+      const stopTimesData = await resp.json();
+      
+      // Extract into compact cache format
+      let tripsExtracted = 0;
+      for (const tripId in stopTimesData) {
+        if (!scheduledTimesCache[tripId]) {
+          scheduledTimesCache[tripId] = {};
+        }
+        for (const stop of stopTimesData[tripId]) {
+          // Only store both if different, otherwise store just one
+          const arr = stop.arr || null;
+          const dep = stop.dep || null;
+          scheduledTimesCache[tripId][stop.seq] = {
+            sch_arr: arr || dep,
+            sch_dep: (dep && dep !== arr) ? dep : null
+          };
+        }
+        tripsExtracted++;
+      }
+      
+      console.log(`[RT Recorder] ✓ Route ${routeId} loaded: ${tripsExtracted} trips, ${Object.keys(stopTimesData[Object.keys(stopTimesData)[0]] || []).length} stops avg`);
+      
+      // Pre-populate all scheduled stops for trips in recordedData that match this route
+      for (const tripId in recordedData) {
+        const trip = recordedData[tripId];
+        if (trip.rid === routeId && scheduledTimesCache[tripId]) {
+          // Populate all scheduled stops for this trip
+          for (const stopSeq in scheduledTimesCache[tripId]) {
+            const seq = parseInt(stopSeq);
+            const scheduled = scheduledTimesCache[tripId][seq];
+            
+            // Only populate if not already recorded (don't overwrite RT data)
+            if (!trip.stops[seq]) {
+              // Get stop_id from the original stopTimesData
+              const stopData = stopTimesData[tripId]?.find(s => s.seq === seq);
+              if (stopData) {
+                trip.stops[seq] = {
+                  sid: stopData.sid,
+                  seq: seq,
+                  arr: null,  // No actual RT data yet
+                  sch_arr: scheduled.sch_arr,
+                  sch_dep: scheduled.sch_dep
+                };
+              }
+            } else {
+              // Merge scheduled times into existing entry (in case RT data came first)
+              if (!trip.stops[seq].sch_arr) trip.stops[seq].sch_arr = scheduled.sch_arr;
+              if (!trip.stops[seq].sch_dep) trip.stops[seq].sch_dep = scheduled.sch_dep;
+            }
+          }
+        }
+      }
+      
+      // Don't store in gtfsData.stopTimesByRoute - we only use scheduledTimesCache
+      // This allows the large stopTimesData object to be garbage collected
+    } catch (err) {
+      console.warn(`[RT Recorder] Failed to load route ${routeId}:`, err);
+    } finally {
+      loadingRoutes.delete(routeId);
+    }
+  }
+  
   // Process trip updates and record stop arrivals
-  function processTripUpdates(data) {
+  async function processTripUpdates(data) {
     if (!data || !data.entity) return;
     
     const now = Date.now();
     let newStopsRecorded = 0;
     
+    // Phase 1: Identify new trips and queue routes for loading
+    for (const entity of data.entity) {
+      const tripUpdate = entity.tripUpdate || entity.trip_update;
+      if (!tripUpdate) continue;
+      
+      const trip = tripUpdate.trip;
+      const tripId = trip?.tripId || trip?.trip_id;
+      const routeId = trip?.routeId || trip?.route_id;
+      
+      if (!tripId || !routeId) continue;
+      
+      // Check if this is a new trip
+      if (!seenTripIds.has(tripId)) {
+        seenTripIds.add(tripId);
+        
+        // Queue route for loading if not already loaded/loading/queued
+        if (!scheduledTimesCache[tripId] && !loadingRoutes.has(routeId) && !pendingRoutesToLoad.has(routeId)) {
+          pendingRoutesToLoad.add(routeId);
+          totalRoutesQueued++;
+        }
+      }
+    }
+    
+    // Phase 2: Load up to 30 routes from queue
+    const routesToLoadNow = [...pendingRoutesToLoad].slice(0, 30);
+    const loadPromises = routesToLoadNow.map(routeId => {
+      pendingRoutesToLoad.delete(routeId);
+      return loadAndExtractScheduledTimes(routeId);
+    });
+    await Promise.all(loadPromises);
+    
+    // Phase 3: Record stop arrivals with scheduled times
     for (const entity of data.entity) {
       const tripUpdate = entity.tripUpdate || entity.trip_update;
       if (!tripUpdate) continue;
@@ -958,13 +1046,20 @@
       
       // Get vehicle's current stop sequence from vehicle position feed
       let currentStopSeq = null;
+      let vehicleFound = false;
       for (const [vId, marker] of markers) {
         const raw = marker._rtEntity;
         const vTripId = raw?.vehicle?.trip?.tripId || raw?.vehicle?.trip?.trip_id || raw?.trip?.tripId || raw?.trip?.trip_id;
         if (vTripId === tripId) {
           currentStopSeq = raw?.vehicle?.currentStopSequence || raw?.vehicle?.current_stop_sequence;
+          vehicleFound = true;
           break;
         }
+      }
+      
+      // Skip this trip if no matching vehicle found in vehiclePosition feed
+      if (!vehicleFound) {
+        continue;
       }
       
       // Initialize trip record if needed
@@ -980,13 +1075,15 @@
       for (const stu of stopTimeUpdates) {
         const stopSeq = stu.stopSequence || stu.stop_sequence;
         const stopId = stu.stopId || stu.stop_id;
-        const arrivalTime = stu.arrival?.time;
+        const arrivalTime = stu.arrival?.time || stu.departure?.time;
         
         if (!stopSeq || !stopId || !arrivalTime) continue;
         
-        // If we know current stop, only record stops up to current
-        // If we don't know, record all (fallback)
-        if (currentStopSeq === null || stopSeq <= currentStopSeq) {
+        // Only record stops up to and including current stop
+        if (currentStopSeq !== null && stopSeq <= currentStopSeq) {
+          // Lookup scheduled times from cache
+          const scheduled = scheduledTimesCache[tripId]?.[stopSeq];
+          
           // Record or update this stop
           if (!recordedData[tripId].stops[stopSeq]) {
             newStopsRecorded++;
@@ -994,7 +1091,9 @@
           recordedData[tripId].stops[stopSeq] = {
             sid: stopId,
             seq: stopSeq,
-            arr: arrivalTime
+            arr: arrivalTime,
+            sch_arr: scheduled?.sch_arr || null,
+            sch_dep: scheduled?.sch_dep || null
           };
         }
       }
@@ -1037,15 +1136,75 @@
     // Update status
     const tripCount = tripIds.length;
     const totalStops = Object.values(recordedData).reduce((sum, trip) => sum + Object.keys(trip.stops).length, 0);
-    recorderStatus.textContent = isRecording 
-      ? `Recording: ${tripCount} trips, ${totalStops} stops recorded`
-      : `Not collecting (${tripCount} trips, ${totalStops} stops in memory)`;
+    const queuedTotal = totalRoutesQueued;
+    const queuedRemaining = pendingRoutesToLoad.size;
+    
+    if (isRecording) {
+      recorderStatus.innerHTML = `Recording: ${tripCount} trips, ${totalStops} stops recorded<br>Routes queued: ${queuedTotal} total, ${queuedRemaining} remaining`;
+    } else {
+      recorderStatus.textContent = `Not collecting (${tripCount} trips, ${totalStops} stops in memory)`;
+    }
   }
   
   // Select a trip to view details
   function selectTrip(tripId) {
     selectedTripId = tripId;
     updateRecorderUI();
+  }
+  
+  // Convert scheduled time string (HH:MM:SS) to epoch timestamp
+  // Uses the actual arrival date as reference
+  function scheduledTimeToEpoch(scheduledTimeStr, actualEpochSeconds) {
+    if (!scheduledTimeStr || !actualEpochSeconds) return null;
+    
+    // Parse scheduled time "HH:MM:SS" (hours can be >= 24)
+    const parts = scheduledTimeStr.split(':');
+    if (parts.length !== 3) return null;
+    
+    let hours = parseInt(parts[0]);
+    const minutes = parseInt(parts[1]);
+    const seconds = parseInt(parts[2]);
+    
+    if (isNaN(hours) || isNaN(minutes) || isNaN(seconds)) return null;
+    
+    // Get date components in Toronto timezone
+    const actualDate = new Date(actualEpochSeconds * 1000);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: TORONTO_TZ,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const formatParts = formatter.formatToParts(actualDate);
+    const year = parseInt(formatParts.find(p => p.type === 'year').value);
+    const month = parseInt(formatParts.find(p => p.type === 'month').value) - 1; // JS months are 0-indexed
+    const day = parseInt(formatParts.find(p => p.type === 'day').value);
+    
+    // Handle hours >= 24 (service day continues past midnight)
+    let daysToAdd = 0;
+    while (hours >= 24) {
+      hours -= 24;
+      daysToAdd++;
+    }
+    
+    // Calculate Toronto's UTC offset on this date
+    // Create a test date at noon UTC on the target day
+    const testDate = new Date(Date.UTC(year, month, day, 12, 0, 0));
+    const testParts = formatter.formatToParts(testDate);
+    const torontoHour = parseInt(testParts.find(p => p.type === 'hour').value);
+    let offsetHours = torontoHour - 12; // Difference between Toronto noon and UTC noon
+    if (offsetHours > 12) offsetHours -= 24;
+    if (offsetHours < -12) offsetHours += 24;
+    
+    // Create the scheduled time in UTC by subtracting Toronto's offset
+    const scheduledUTC = Date.UTC(year, month, day + daysToAdd, hours - offsetHours, minutes, seconds);
+    
+    return Math.floor(scheduledUTC / 1000);
   }
   
   // Show details for selected trip
@@ -1065,21 +1224,65 @@
     
     let html = `<div style="margin-bottom:8px;font-weight:600;">Trip ${tripId}</div>`;
     html += `<div style="margin-bottom:8px;color:#666;">Route: ${escapeHtml(routeDisplay)}</div>`;
-    html += `<div style="margin-bottom:8px;color:#666;">Stops recorded: ${stopSeqs.length}</div>`;
+    html += `<div style="margin-bottom:8px;color:#666;">Actual Stops recorded: ${stopSeqs.length}</div>`;
     html += '<div style="margin-top:12px;">';
     
     for (const seq of stopSeqs) {
       const stop = trip.stops[seq];
       const stopData = gtfsData.stops[stop.sid];
       const stopName = stopData?.stop_name || stop.sid;
-      const arrTime = new Date(stop.arr * 1000).toLocaleTimeString('en-US', {
-        timeZone: TORONTO_TZ,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
       
-      html += `<div class="stop-record">Stop #${stop.seq} (${escapeHtml(stop.sid)}): ${arrTime}<br><span style="color:#666;font-size:10px;">${escapeHtml(stopName)}</span></div>`;
+      let timeDisplay = '';
+      
+      // Check if we have actual RT arrival data
+      if (stop.arr !== null) {
+        const actualTime = new Date(stop.arr * 1000).toLocaleTimeString('en-US', {
+          timeZone: TORONTO_TZ,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+        
+        timeDisplay = `Actual: ${actualTime}`;
+        
+        // Show scheduled time with delay if available
+        if (stop.sch_arr || stop.sch_dep) {
+          const scheduledEpoch = scheduledTimeToEpoch(stop.sch_arr || stop.sch_dep, stop.arr);
+          
+          if (scheduledEpoch !== null) {
+            const schTime = new Date(scheduledEpoch * 1000).toLocaleTimeString('en-US', {
+              timeZone: TORONTO_TZ,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            });
+            const delay = stop.arr - scheduledEpoch;
+            const delayMin = Math.round(delay / 60);
+            const delayText = delay > 0 ? `+${delayMin}m` : `${delayMin}m`;
+            timeDisplay += ` | Scheduled: ${schTime} (${delayText})`;
+          }
+        }
+      } else {
+        // No RT data yet, show only scheduled time if available
+        if (stop.sch_arr || stop.sch_dep) {
+          // Use current time as reference for epoch conversion
+          const scheduledEpoch = scheduledTimeToEpoch(stop.sch_arr || stop.sch_dep, Date.now() / 1000);
+          
+          if (scheduledEpoch !== null) {
+            const schTime = new Date(scheduledEpoch * 1000).toLocaleTimeString('en-US', {
+              timeZone: TORONTO_TZ,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            });
+            timeDisplay = `Scheduled: ${schTime}`;
+          }
+        } else {
+          timeDisplay = '<span style="color:#999;">No data</span>';
+        }
+      }
+      
+      html += `<div class="stop-record">Stop #${stop.seq} (${escapeHtml(stop.sid)}) <span style="color:#666;">${escapeHtml(stopName)}</span><br>${timeDisplay}</div>`;
     }
     
     html += '</div>';
@@ -1095,14 +1298,14 @@
     stopRecordBtn.disabled = false;
     
     // Fetch immediately
-    fetchTripUpdates().then(data => {
-      if (data) processTripUpdates(data);
+    fetchTripUpdates().then(async data => {
+      if (data) await processTripUpdates(data);
     });
     
     // Then fetch every 60 seconds
     recordingIntervalId = setInterval(async () => {
       const data = await fetchTripUpdates();
-      if (data) processTripUpdates(data);
+      if (data) await processTripUpdates(data);
     }, TRIP_UPDATE_INTERVAL_MS);
     
     updateRecorderUI();
@@ -1143,10 +1346,21 @@
     console.log('[RT Recorder] Downloaded recorded data');
   }
   
+  // Toggle recorder panel visibility
+  const recorderPanel = document.getElementById('recorderPanel');
+  const toggleRecorderBtn = document.getElementById('toggleRecorderBtn');
+  const closeRecorderBtn = document.getElementById('closeRecorderBtn');
+  
+  function toggleRecorderPanel() {
+    recorderPanel.classList.toggle('hidden');
+  }
+  
   // Event listeners
   startRecordBtn.addEventListener('click', startRecording);
   stopRecordBtn.addEventListener('click', stopRecording);
   downloadRecordBtn.addEventListener('click', downloadRecordedData);
+  toggleRecorderBtn.addEventListener('click', toggleRecorderPanel);
+  closeRecorderBtn.addEventListener('click', toggleRecorderPanel);
   
   // Initialize UI
   updateRecorderUI();

@@ -4,6 +4,7 @@ on:
   # Ping every 10 minutes to prevent spin-down
   schedule:
     - cron: '*/10 * * * *'
+    - cron: '58 7 * * *'  # Extra ping 2 minutes before daily export (7:58 AM UTC)
   
   # Allow manual triggering
   workflow_dispatch:
