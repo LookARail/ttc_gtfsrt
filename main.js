@@ -967,18 +967,22 @@
               // Get stop_id from the original stopTimesData
               const stopData = stopTimesData[tripId]?.find(s => s.seq === seq);
               if (stopData) {
-                trip.stops[seq] = {
+                const prepopStop = {
                   sid: stopData.sid,
                   seq: seq,
                   arr: null,  // No actual RT data yet
-                  sch_arr: scheduled.sch_arr,
-                  sch_dep: scheduled.sch_dep
+                  sch_arr: scheduled.sch_arr
                 };
+                // Only include sch_dep if it exists
+                if (scheduled.sch_dep) {
+                  prepopStop.sch_dep = scheduled.sch_dep;
+                }
+                trip.stops[seq] = prepopStop;
               }
             } else {
               // Merge scheduled times into existing entry (in case RT data came first)
               if (!trip.stops[seq].sch_arr) trip.stops[seq].sch_arr = scheduled.sch_arr;
-              if (!trip.stops[seq].sch_dep) trip.stops[seq].sch_dep = scheduled.sch_dep;
+              if (scheduled.sch_dep && !trip.stops[seq].sch_dep) trip.stops[seq].sch_dep = scheduled.sch_dep;
             }
           }
         }
@@ -1088,13 +1092,20 @@
           if (!recordedData[tripId].stops[stopSeq]) {
             newStopsRecorded++;
           }
-          recordedData[tripId].stops[stopSeq] = {
+          
+          const stopData = {
             sid: stopId,
             seq: stopSeq,
             arr: arrivalTime,
-            sch_arr: scheduled?.sch_arr || null,
-            sch_dep: scheduled?.sch_dep || null
+            sch_arr: scheduled?.sch_arr || null
           };
+          
+          // Only include sch_dep if it exists and is different from sch_arr
+          if (scheduled?.sch_dep) {
+            stopData.sch_dep = scheduled.sch_dep;
+          }
+          
+          recordedData[tripId].stops[stopSeq] = stopData;
         }
       }
     }

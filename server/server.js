@@ -168,17 +168,21 @@ async function loadAndExtractScheduledTimes(routeId) {
           if (!trip.stops[seq]) {
             const stopData = stopTimesData[tripId]?.find(s => s.seq === seq);
             if (stopData) {
-              trip.stops[seq] = {
+              const prepopStop = {
                 sid: stopData.sid,
                 seq: seq,
                 arr: null,
-                sch_arr: scheduled.sch_arr,
-                sch_dep: scheduled.sch_dep
+                sch_arr: scheduled.sch_arr
               };
+              // Only include sch_dep if it exists
+              if (scheduled.sch_dep) {
+                prepopStop.sch_dep = scheduled.sch_dep;
+              }
+              trip.stops[seq] = prepopStop;
             }
           } else {
             if (!trip.stops[seq].sch_arr) trip.stops[seq].sch_arr = scheduled.sch_arr;
-            if (!trip.stops[seq].sch_dep) trip.stops[seq].sch_dep = scheduled.sch_dep;
+            if (scheduled.sch_dep && !trip.stops[seq].sch_dep) trip.stops[seq].sch_dep = scheduled.sch_dep;
           }
         }
       }
@@ -197,8 +201,12 @@ async function loadAndExtractScheduledTimes(routeId) {
 async function processTripUpdates(tripUpdatesFeed) {
   if (!tripUpdatesFeed || !tripUpdatesFeed.entity) return;
   
+  // Normalize protobuf objects (Long, etc.) to primitives for JSON compatibility
+  // This ensures server output matches local recording format
+  const normalizedFeed = JSON.parse(JSON.stringify(tripUpdatesFeed));
+  
   // Phase 1: Identify new trips and queue routes for loading
-  for (const entity of tripUpdatesFeed.entity) {
+  for (const entity of normalizedFeed.entity) {
     if (!entity.tripUpdate) continue;
     
     const tripId = entity.tripUpdate.trip?.tripId;
@@ -224,7 +232,7 @@ async function processTripUpdates(tripUpdatesFeed) {
   }
   
   // Phase 3: Record stops with scheduled times from cache
-  for (const entity of tripUpdatesFeed.entity) {
+  for (const entity of normalizedFeed.entity) {
     if (!entity.tripUpdate) continue;
     
     const tripId = entity.tripUpdate.trip?.tripId;
@@ -252,13 +260,20 @@ async function processTripUpdates(tripUpdatesFeed) {
       
       if (!recordedData[tripId].stops[stopSeq]) {
         const scheduled = scheduledTimesCache[tripId]?.[stopSeq];
-        recordedData[tripId].stops[stopSeq] = {
+        
+        const stopData = {
           sid: stopId,
           seq: stopSeq,
           arr: arrivalTime,
-          sch_arr: scheduled?.sch_arr || null,
-          sch_dep: scheduled?.sch_dep || null
+          sch_arr: scheduled?.sch_arr || null
         };
+        
+        // Only include sch_dep if it exists and is different from sch_arr
+        if (scheduled?.sch_dep) {
+          stopData.sch_dep = scheduled.sch_dep;
+        }
+        
+        recordedData[tripId].stops[stopSeq] = stopData;
       }
     }
   }

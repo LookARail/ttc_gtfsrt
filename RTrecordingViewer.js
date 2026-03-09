@@ -212,6 +212,7 @@
     
     const tripSummaries = [];
     const stopDeltas = [];
+    let debugSampleShown = false;
     
     // Process each trip
     for (const tripId in recordedData) {
@@ -236,6 +237,19 @@
             delta: null // No scheduled data
           });
           continue;
+        }
+        
+        // Debug first few conversions
+        if (!debugSampleShown) {
+          console.log('[Viewer] Sample scheduled time conversion:', {
+            tripId,
+            routeId: trip.rid,
+            stopSeq,
+            scheduledTimeStr,
+            actualArrival: stop.arr,
+            actualArrivalDate: new Date(stop.arr * 1000).toISOString()
+          });
+          debugSampleShown = true;
         }
         
         // Convert scheduled time to epoch
@@ -281,7 +295,16 @@
     console.log('[Viewer] Processing complete:', {
       tripSummaries: tripSummaries.length,
       stopDeltas: stopDeltas.length,
-      deltasWithValues: stopDeltas.filter(d => d.delta !== null).length
+      deltasWithValues: stopDeltas.filter(d => d.delta !== null).length,
+      tripsWithMaxDelay: tripSummaries.filter(t => t.maxDelay !== null).length,
+      sampleTripsWithDelay: tripSummaries.filter(t => t.maxDelay !== null).slice(0, 3).map(t => ({ 
+        routeId: t.routeId, 
+        maxDelay: t.maxDelay 
+      })),
+      sampleTripsWithoutDelay: tripSummaries.filter(t => t.maxDelay === null).slice(0, 3).map(t => ({ 
+        routeId: t.routeId, 
+        stopCount: t.stopCount 
+      }))
     });
     
     return { tripSummaries, stopDeltas };
@@ -291,7 +314,9 @@
     console.log('[Viewer] Aggregating by route:', {
       totalTrips: tripSummaries.length,
       selectedRoutes: Array.from(selectedRoutes),
-      filterActive: selectedRoutes.size > 0
+      filterActive: selectedRoutes.size > 0,
+      sampleTripRouteIds: tripSummaries.slice(0, 5).map(t => ({ id: t.routeId, type: typeof t.routeId })),
+      selectedRouteTypes: Array.from(selectedRoutes).slice(0, 5).map(r => ({ id: r, type: typeof r }))
     });
     
     const routeMap = {};
@@ -440,6 +465,7 @@
     const loadError = doc.getElementById('loadError');
     const statusBadge = doc.getElementById('statusBadge');
     const viewerContent = doc.getElementById('viewerContent');
+    const filterSection = doc.getElementById('filterSection');
     const loadingIndicator = doc.getElementById('loadingIndicator');
     const routeFilter = doc.getElementById('routeFilter');
     const selectAllBtn = doc.getElementById('selectAllRoutes');
@@ -529,6 +555,7 @@
         renderCharts(doc);
         
         loadingIndicator.style.display = 'none';
+        filterSection.style.display = 'block';
         viewerContent.style.display = 'block';
       } catch (err) {
         loadingIndicator.style.display = 'none';
@@ -555,6 +582,57 @@
       console.log('[Viewer] Apply filter clicked:', {
         selectedCount: selectedRouteIds.size,
         selectedRoutes: Array.from(selectedRouteIds)
+      });
+      
+      // Debug: Show detailed stop-level data for up to 20 random trips
+      const filteredTrips = processedData.tripSummaries.filter(t => 
+        selectedRouteIds.size === 0 || selectedRouteIds.has(t.routeId)
+      );
+      
+      const sampleSize = Math.min(20, filteredTrips.length);
+      const randomTrips = [];
+      const usedIndices = new Set();
+      
+      while (randomTrips.length < sampleSize && usedIndices.size < filteredTrips.length) {
+        const idx = Math.floor(Math.random() * filteredTrips.length);
+        if (!usedIndices.has(idx)) {
+          usedIndices.add(idx);
+          randomTrips.push(filteredTrips[idx]);
+        }
+      }
+      
+      console.log(`[Viewer Debug] Showing detailed stop data for ${randomTrips.length} random trips:`);
+      
+      randomTrips.forEach((tripSummary, tripIdx) => {
+        const tripData = currentData.recordedData[tripSummary.tripId];
+        if (!tripData) return;
+        
+        const stopDetails = [];
+        for (const stopSeq in tripData.stops) {
+          const stop = tripData.stops[stopSeq];
+          const scheduledTimeStr = stop.sch_arr || stop.sch_dep;
+          const scheduledEpoch = scheduledTimeStr ? scheduledTimeToEpoch(scheduledTimeStr, stop.arr) : null;
+          const delta = (stop.arr && scheduledEpoch) ? stop.arr - scheduledEpoch : null;
+          
+          stopDetails.push({
+            seq: stop.seq,
+            stopId: stop.sid,
+            scheduledStr: scheduledTimeStr || 'MISSING',
+            scheduledEpoch: scheduledEpoch,
+            actualEpoch: stop.arr,
+            actualTime: stop.arr ? new Date(stop.arr * 1000).toISOString() : 'MISSING',
+            delta: delta !== null ? `${delta}s (${formatDuration(delta)})` : 'NULL'
+          });
+        }
+        
+        console.log(`[Viewer Debug] Trip ${tripIdx + 1}/${randomTrips.length}:`, {
+          tripId: tripSummary.tripId,
+          routeId: tripSummary.routeId,
+          vehicleId: tripSummary.vehicleId,
+          maxDelay: tripSummary.maxDelay !== null ? `${tripSummary.maxDelay}s (${formatDuration(tripSummary.maxDelay)})` : 'NULL',
+          stopCount: stopDetails.length,
+          stops: stopDetails
+        });
       });
       
       renderCharts(doc);

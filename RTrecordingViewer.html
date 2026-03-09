@@ -6,73 +6,81 @@
   <link rel="stylesheet" href="RTrecordingViewer.css">
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>RT Recording Viewer</h1>
-      <div id="statusBadge"></div>
-    </div>
-    
-    <div class="data-source-section">
-      <div class="form-group">
-        <label for="dataSource">Data Source:</label>
-        <select id="dataSource">
-          <option value="">-- Select data source --</option>
-          <option value="memory">Current Recording (Local Memory)</option>
-          <option value="github">Load from GitHub</option>
-          <option value="file">Upload JSON File</option>
-        </select>
-      </div>
-      
-      <div id="githubDateSelect" style="display:none;" class="form-group">
-        <label for="githubDate">Select Date:</label>
-        <select id="githubDate">
-          <option value="">-- Loading available dates... --</option>
-        </select>
-        <div class="date-annotation">
-          Note: JSON file date indicates when recording completed at 3 AM Toronto time. 
-          For example, "2026-03-09.json" contains data from March 8 (previous day).
-        </div>
-      </div>
-      
-      <div id="fileUpload" style="display:none;" class="form-group">
-        <label for="fileInput">Select JSON File:</label>
-        <input type="file" id="fileInput" accept=".json">
-      </div>
-      
-      <button id="loadDataBtn" disabled>Load Data</button>
-      <div id="loadError" class="error" style="display:none; margin-top:10px;"></div>
-    </div>
-    
-    <div id="viewerContent" style="display:none;">
-      <div class="filter-section">
-        <label>Filter by Route:</label>
-        <div class="route-filter" id="routeFilter"></div>
-        <div class="filter-controls">
-          <button id="selectAllRoutes">Select All</button>
-          <button id="deselectAllRoutes">Deselect All</button>
-          <button id="applyFilter">Apply Filter</button>
-        </div>
-      </div>
-      
-      <div class="tabs">
-        <button class="tab active" data-tab="otp">On-Time Performance</button>
-      </div>
-      
-      <div id="otpTab" class="tab-content active">
-        <div class="chart-container">
-          <div class="chart-title">Top 10 Routes by Average Delay</div>
-          <canvas id="routeChart"></canvas>
+  <div class="header">
+    <h1>RT Recording Viewer</h1>
+    <div id="statusBadge"></div>
+  </div>
+  
+  <div class="viewer-container">
+    <!-- Left Panel: 30% -->
+    <div class="left-panel">
+      <div class="data-source-section">
+        <h3>Data Source</h3>
+        <div class="form-group">
+          <label for="dataSource">Source:</label>
+          <select id="dataSource">
+            <option value="">-- Select source --</option>
+            <option value="memory">Current Recording</option>
+            <option value="github">Load from GitHub</option>
+            <option value="file">Upload JSON File</option>
+          </select>
         </div>
         
-        <div class="chart-container">
-          <div class="chart-title">Top 20 Stops by Average Delay</div>
-          <canvas id="stopChart"></canvas>
+        <div id="githubDateSelect" style="display:none;" class="form-group">
+          <label for="githubDate">Select Date:</label>
+          <select id="githubDate">
+            <option value="">-- Loading... --</option>
+          </select>
+          <div class="date-annotation">
+            Note: "2026-03-09.json" contains data from March 8 (completed at 3 AM Toronto time).
+          </div>
+        </div>
+        
+        <div id="fileUpload" style="display:none;" class="form-group">
+          <label for="fileInput">Select File:</label>
+          <input type="file" id="fileInput" accept=".json">
+        </div>
+        
+        <button id="loadDataBtn" class="primary-btn" disabled>Load Data</button>
+        <div id="loadError" class="error" style="display:none;"></div>
+      </div>
+      
+      <div id="filterSection" class="filter-section" style="display:none;">
+        <h3>Route Filter</h3>
+        <div class="route-filter" id="routeFilter"></div>
+        <div class="filter-controls">
+          <button id="selectAllRoutes" class="small-btn">Select All</button>
+          <button id="deselectAllRoutes" class="small-btn">Deselect All</button>
+          <button id="applyFilter" class="primary-btn">Apply Filter</button>
         </div>
       </div>
     </div>
     
-    <div id="loadingIndicator" class="loading" style="display:none;">
-      Processing data...
+    <!-- Right Panel: 70% -->
+    <div class="right-panel">
+      <div id="loadingIndicator" class="loading">
+        Processing data...
+      </div>
+      
+      <div id="viewerContent" style="display:none;">
+        <div class="tabs">
+          <button class="tab active" data-tab="otp">On-Time Performance</button>
+        </div>
+        
+        <div class="charts-container">
+          <div id="otpTab" class="tab-content active">
+            <div class="chart-wrapper">
+              <div class="chart-title">Top 10 Routes by Average Delay</div>
+              <canvas id="routeChart"></canvas>
+            </div>
+            
+            <div class="chart-wrapper">
+              <div class="chart-title">Top 20 Stops by Average Delay</div>
+              <canvas id="stopChart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   
