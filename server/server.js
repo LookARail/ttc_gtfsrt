@@ -28,6 +28,7 @@ let scheduledTimesCache = {}; // { tripId: { stopSeq: { sch_arr, sch_dep } } }
 let seenTripIds = new Set();
 let pendingRoutesToLoad = new Set();
 let loadingRoutes = new Set();
+let metadata = null; // Loaded on startup: route_id -> filename mapping
 
 // Retry configuration
 const MAX_RETRIES = 3;
@@ -113,11 +114,25 @@ async function fetchTripUpdates() {
 async function loadAndExtractScheduledTimes(routeId) {
   if (loadingRoutes.has(routeId)) return;
   
+  // Check if metadata is loaded and has filename mapping
+  if (!metadata || !metadata.stop_times_files) {
+    console.warn(`[RT Recorder] Cannot load route ${routeId}: metadata not available`);
+    pendingRoutesToLoad.delete(routeId);
+    return;
+  }
+  
+  const filename = metadata.stop_times_files[routeId];
+  if (!filename) {
+    console.warn(`[RT Recorder] No stop_times file for route ${routeId}`);
+    pendingRoutesToLoad.delete(routeId);
+    return;
+  }
+  
   loadingRoutes.add(routeId);
   console.log(`[RT Recorder] Loading route ${routeId}...`);
   
   try {
-    const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data/stop_times_${routeId}.json`);
+    const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data/${filename}`);
     if (!response.ok) {
       console.warn(`[RT Recorder] Failed to load route ${routeId}: HTTP ${response.status}`);
       pendingRoutesToLoad.delete(routeId);
@@ -190,6 +205,11 @@ async function loadAndExtractScheduledTimes(routeId) {
 // Process trip updates and record stop arrivals
 async function processTripUpdates(tripUpdatesFeed, vehiclePositionsFeed) {
   if (!tripUpdatesFeed || !tripUpdatesFeed.entity) return;
+  
+  // Log current cache state before processing
+  const currentTripsInCache = Object.keys(recordedData).length;
+  const currentStopsInCache = Object.values(recordedData).reduce((sum, trip) => sum + Object.keys(trip.stops).length, 0);
+  console.log(`[RT Recorder] Cache before processing: ${currentTripsInCache} trips, ${currentStopsInCache} stops`);
   
   // Normalize protobuf objects (Long, etc.) to primitives for JSON compatibility
   // This ensures server output matches local recording format
@@ -395,6 +415,20 @@ app.post("/clear-trip-data", (req, res) => {
   });
 });
 
+// Load metadata on startup
+async function loadMetadata() {
+  try {
+    console.log("Loading GTFS metadata...");
+    const response = await fetch(`https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data/metadata.json`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    metadata = await response.json();
+    console.log(`✓ Metadata loaded: ${Object.keys(metadata.stop_times_files || {}).length} routes available`);
+  } catch (err) {
+    console.error("Failed to load metadata:", err);
+    console.warn("⚠️  Recording will work but scheduled times won't be available!");
+  }
+}
+
 // Pre-warm GTFS-RT cache on startup
 async function prewarmCache() {
   try {
@@ -408,7 +442,8 @@ async function prewarmCache() {
 }
 
 async function main() {
-  // Pre-warm cache BEFORE starting server
+  // Load metadata and pre-warm cache BEFORE starting server
+  await loadMetadata();
   await prewarmCache();
   
   app.listen(PORT, () => {
