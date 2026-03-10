@@ -13,6 +13,7 @@
   let viewerWindow = null;
   let currentData = null;
   let stopsData = null;
+  let routesData = null;
   let selectedRouteIds = new Set();
   let processedData = {
     tripSummaries: [],
@@ -20,6 +21,13 @@
     routeAggregations: [],
     stopAggregations: []
   };
+
+  // ============================================================================
+  // CHART INSTANCES (initialized once)
+  // ============================================================================
+
+  let routeChart = null;
+  let stopChart = null;
 
   // ============================================================================
   // TIMEZONE & FORMATTING UTILITIES
@@ -67,9 +75,21 @@
     if (offsetHours > 12) offsetHours -= 24;
     if (offsetHours < -12) offsetHours += 24;
     
-    const scheduledUTC = Date.UTC(year, month, day + daysToAdd, hours - offsetHours, minutes, seconds);
-    
-    return Math.floor(scheduledUTC / 1000);
+let scheduledUTC = Date.UTC(year, month, day + daysToAdd, hours - offsetHours, minutes, seconds);
+  let scheduledEpoch = Math.floor(scheduledUTC / 1000);
+  
+  // Adjust if scheduled time is unreasonably far from reference time
+  // If scheduled is more than 12 hours ahead of actual, subtract a day
+  // If scheduled is more than 12 hours behind actual, add a day
+  const diff = scheduledEpoch - referenceEpochSeconds;
+  
+  if (diff > 43200) { // More than 12 hours in the future
+    scheduledEpoch -= 86400; // Subtract one day
+  } else if (diff < -43200) { // More than 12 hours in the past
+    scheduledEpoch += 86400; // Add one day
+  }
+  
+  return scheduledEpoch;
   }
 
   function formatDuration(seconds) {
@@ -98,6 +118,20 @@
       return stopsData;
     } catch (err) {
       console.error('Failed to load stops data:', err);
+      return {};
+    }
+  }
+
+  async function loadRoutesData() {
+    if (routesData) return routesData;
+    
+    try {
+      const response = await fetch(`${GITHUB_RAW_BASE}/data/routes.json`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      routesData = await response.json();
+      return routesData;
+    } catch (err) {
+      console.error('Failed to load routes data:', err);
       return {};
     }
   }
@@ -428,32 +462,27 @@
       return;
     }
     
-    // Wait for window to fully load, then initialize
+    // Wait for window to fully load, then inject data references
+    // The child window will auto-initialize itself
     const checkLoad = setInterval(() => {
       if (viewerWindow.document.readyState === 'complete') {
         clearInterval(checkLoad);
-        // Inject our functions and data accessors into the child window
-        viewerWindow.RTViewerFunctions = {
-          loadFromMemory,
-          loadFromGitHub,
-          loadFromFile,
-          scanAvailableRecordings,
-          processData,
-          aggregateByRoute,
-          aggregateByStop,
-          loadStopsData,
-          scheduledTimeToEpoch,
-          formatDuration
-        };
+        // Inject data accessors into the child window
         viewerWindow.parentRecordedData = typeof recordedData !== 'undefined' ? recordedData : null;
         viewerWindow.parentScheduledTimesCache = typeof scheduledTimesCache !== 'undefined' ? scheduledTimesCache : null;
-        initializeViewer(viewerWindow);
       }
     }, 100);
   }
 
   function initializeViewer(win) {
     const doc = win.document;
+    
+    // Initialize charts once (empty data)
+    const chartsReady = initializeCharts(doc);
+    if (!chartsReady) {
+      console.error('[Viewer] Failed to initialize charts');
+      // Continue anyway so user can see the error message
+    }
     
     // Get elements
     const dataSourceSelect = doc.getElementById('dataSource');
@@ -542,8 +571,8 @@
         
         currentData = data;
         
-        // Load stops data and process
-        await loadStopsData();
+        // Load stops and routes data, then process
+        await Promise.all([loadStopsData(), loadRoutesData()]);
         const processed = processData(data);
         processedData.tripSummaries = processed.tripSummaries;
         processedData.stopDeltas = processed.stopDeltas;
@@ -674,14 +703,155 @@
       checkbox.value = routeId;
       checkbox.checked = true;
       
+      // Get route name if available
+      const routeName = routesData && routesData[routeId] ? routesData[routeId].route_long_name : null;
+      const displayText = routeName ? ` ${routeId} - ${routeName}` : ` ${routeId}`;
+      
       label.appendChild(checkbox);
-      label.appendChild(doc.createTextNode(` ${routeId}`));
+      label.appendChild(doc.createTextNode(displayText));
       routeFilterContainer.appendChild(label);
     });
   }
 
+  function initializeCharts(doc) {
+    console.log('[Viewer] Initializing charts...');
+    
+    if (typeof Chart === 'undefined') {
+      console.error('[Viewer] Chart.js not loaded!');
+      const otpTab = doc.getElementById('otpTab');
+      if (otpTab) {
+        otpTab.innerHTML = '<div class="no-data">Error: Chart.js library failed to load. Please refresh the page or check your internet connection.</div>';
+      }
+      return false;
+    }
+    
+    console.log('[Viewer] Chart.js library loaded successfully');
+    
+    // Initialize route chart
+    const routeCanvas = doc.getElementById('routeChart');
+    if (!routeCanvas) {
+      console.error('[Viewer] Canvas element #routeChart not found!');
+      return false;
+    }
+    
+    console.log('[Viewer] Creating route chart...');
+    try {
+      const routeCtx = routeCanvas.getContext('2d');
+      routeChart = new Chart(routeCtx, {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Average Delay',
+            data: [],
+            backgroundColor: [],
+            borderColor: [],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const delay = context.parsed.x;
+                  return `Avg Delay: ${delay.toFixed(0)}s`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Average Delay (seconds)' },
+              ticks: {
+                stepSize: 60,
+                callback: (value) => `${value}s`
+              }
+            },
+            y: {
+              title: { display: true, text: 'Route' }
+            }
+          }
+        }
+      });
+      console.log('[Viewer] Route chart created successfully');
+    } catch (err) {
+      console.error('[Viewer] Failed to create route chart:', err);
+      return false;
+    }
+    
+    // Initialize stop chart
+    const stopCanvas = doc.getElementById('stopChart');
+    if (!stopCanvas) {
+      console.error('[Viewer] Canvas element #stopChart not found!');
+      return false;
+    }
+    
+    console.log('[Viewer] Creating stop chart...');
+    try {
+      const stopCtx = stopCanvas.getContext('2d');
+      stopChart = new Chart(stopCtx, {
+        type: 'bar',
+        data: {
+          labels: [],
+          datasets: [{
+            label: 'Average Delay',
+            data: [],
+            backgroundColor: [],
+            borderColor: [],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const delay = context.parsed.x;
+                  return `Avg Delay: ${delay.toFixed(0)}s`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Average Delay (seconds)' },
+              ticks: {
+                stepSize: 60,
+                callback: (value) => `${value}s`
+              }
+            },
+            y: {
+              title: { display: true, text: 'Stop' },
+              ticks: {
+                font: { size: 10 }
+              }
+            }
+          }
+        }
+      });
+      console.log('[Viewer] Stop chart created successfully');
+    } catch (err) {
+      console.error('[Viewer] Failed to create stop chart:', err);
+      return false;
+    }
+    
+    console.log('[Viewer] Charts initialized');
+    return true;
+  }
+
   function renderCharts(doc) {
-    console.log('[Viewer] Rendering charts with:', {
+    console.log('[Viewer] Updating charts with:', {
       tripSummaries: processedData.tripSummaries.length,
       stopDeltas: processedData.stopDeltas.length,
       selectedRoutes: Array.from(selectedRouteIds)
@@ -700,37 +870,27 @@
       return;
     }
     
-    // Render route chart
-    renderRouteChart(doc, routeAgg);
+    // Update route chart
+    updateRouteChart(routeAgg);
     
-    // Render stop chart
-    renderStopChart(doc, stopAgg);
+    // Update stop chart
+    updateStopChart(stopAgg);
   }
 
-  function renderRouteChart(doc, data) {
-    console.log('[Viewer] Rendering route chart with', data.length, 'routes');
+  function updateRouteChart(data) {
+    console.log('[Viewer] Updating route chart with', data.length, 'routes');
     
-    const canvas = doc.getElementById('routeChart');
-    if (!canvas) {
-      console.error('[Viewer] Route chart canvas not found!');
+    if (!routeChart) {
+      console.error('[Viewer] Route chart not initialized!');
       return;
-    }
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Check if Chart.js is available
-    if (typeof Chart === 'undefined') {
-      console.error('[Viewer] Chart.js is not loaded!');
-      return;
-    }
-    
-    // Destroy existing chart
-    if (canvas.chart) {
-      canvas.chart.destroy();
     }
     
     if (data.length === 0) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      routeChart.data.labels = [];
+      routeChart.data.datasets[0].data = [];
+      routeChart.data.datasets[0].backgroundColor = [];
+      routeChart.data.datasets[0].borderColor = [];
+      routeChart.update('none');
       return;
     }
     
@@ -743,62 +903,44 @@
       return `rgb(${r}, ${g}, ${b})`;
     });
     
-    canvas.chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: data.map(d => d.routeId),
-        datasets: [{
-          label: 'Average Delay',
-          data: data.map(d => d.avgDelay),
-          backgroundColor: colors,
-          borderColor: colors,
-          borderWidth: 1
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                const route = data[context.dataIndex];
-                return [
-                  `Avg Delay: ${formatDuration(route.avgDelay)}`,
-                  `Trips: ${route.tripCount}`
-                ];
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            title: { display: true, text: 'Average Delay (seconds)' },
-            ticks: {
-              callback: (value) => formatDuration(value)
-            }
-          },
-          y: {
-            title: { display: true, text: 'Route' }
-          }
-        }
-      }
+    // Update data with route names
+    routeChart.data.labels = data.map(d => {
+      const routeName = routesData && routesData[d.routeId] ? routesData[d.routeId].route_long_name : null;
+      return routeName ? `${d.routeId} - ${routeName}` : d.routeId;
     });
+    routeChart.data.datasets[0].data = data.map(d => d.avgDelay);
+    routeChart.data.datasets[0].backgroundColor = colors;
+    routeChart.data.datasets[0].borderColor = colors;
+    
+    // Store full data for tooltip access
+    routeChart.fullData = data;
+    
+    // Update tooltip callback to access stored data
+    routeChart.options.plugins.tooltip.callbacks.label = (context) => {
+      const route = routeChart.fullData[context.dataIndex];
+      return [
+        `Avg Delay: ${route.avgDelay.toFixed(0)}s`,
+        `Trips: ${route.tripCount}`
+      ];
+    };
+    
+    routeChart.update('none');
   }
 
-  function renderStopChart(doc, data) {
-    const canvas = doc.getElementById('stopChart');
-    const ctx = canvas.getContext('2d');
+  function updateStopChart(data) {
+    console.log('[Viewer] Updating stop chart with', data.length, 'stops');
     
-    // Destroy existing chart
-    if (canvas.chart) {
-      canvas.chart.destroy();
+    if (!stopChart) {
+      console.error('[Viewer] Stop chart not initialized!');
+      return;
     }
     
     if (data.length === 0) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      stopChart.data.labels = [];
+      stopChart.data.datasets[0].data = [];
+      stopChart.data.datasets[0].backgroundColor = [];
+      stopChart.data.datasets[0].borderColor = [];
+      stopChart.update('none');
       return;
     }
     
@@ -811,53 +953,26 @@
       return `rgb(${r}, ${g}, ${b})`;
     });
     
-    canvas.chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: data.map(d => `${d.stopId} - ${d.stopName}`),
-        datasets: [{
-          label: 'Average Delay',
-          data: data.map(d => d.avgDelay),
-          backgroundColor: colors,
-          borderColor: colors,
-          borderWidth: 1
-        }]
-      },
-      options: {
-        indexAxis: 'y',
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                const stop = data[context.dataIndex];
-                return [
-                  `Avg Delay: ${formatDuration(stop.avgDelay)}`,
-                  `Records: ${stop.recordCount}`,
-                  `Stop: ${stop.stopName}`
-                ];
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            title: { display: true, text: 'Average Delay (seconds)' },
-            ticks: {
-              callback: (value) => formatDuration(value)
-            }
-          },
-          y: {
-            title: { display: true, text: 'Stop' },
-            ticks: {
-              font: { size: 10 }
-            }
-          }
-        }
-      }
-    });
+    // Update data
+    stopChart.data.labels = data.map(d => `${d.stopId} - ${d.stopName}`);
+    stopChart.data.datasets[0].data = data.map(d => d.avgDelay);
+    stopChart.data.datasets[0].backgroundColor = colors;
+    stopChart.data.datasets[0].borderColor = colors;
+    
+    // Store full data for tooltip access
+    stopChart.fullData = data;
+    
+    // Update tooltip callback to access stored data
+    stopChart.options.plugins.tooltip.callbacks.label = (context) => {
+      const stop = stopChart.fullData[context.dataIndex];
+      return [
+        `Avg Delay: ${stop.avgDelay.toFixed(0)}s`,
+        `Records: ${stop.recordCount}`,
+        `Stop: ${stop.stopName}`
+      ];
+    };
+    
+    stopChart.update('none');
   }
 
   // ============================================================================
@@ -867,5 +982,26 @@
   window.RTRecordingViewer = {
     open: openViewer
   };
+
+  // ============================================================================
+  // AUTO-INITIALIZE IF LOADED STANDALONE
+  // ============================================================================
+
+  // Auto-initialize if this is the viewer page (regardless of how it was opened)
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize if we're in the RTrecordingViewer.html page itself
+      if (document.getElementById('dataSource')) {
+        console.log('[Viewer] Auto-initializing...');
+        initializeViewer(window);
+      }
+    });
+  } else {
+    // Page already loaded
+    if (document.getElementById('dataSource')) {
+      console.log('[Viewer] Auto-initializing...');
+      initializeViewer(window);
+    }
+  }
 
 })();

@@ -84,7 +84,10 @@
     </div>
   </div>
   
-  <script src="libs/chart.js"></script>
+  <!-- Load Chart.js statically (local or CDN fallback) -->
+  <script src="libs/chart.js" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js';"></script>
+  
+  <!-- Main viewer script -->
   <script src="RTrecordingViewer.js"></script>
 </body>
 </html>
