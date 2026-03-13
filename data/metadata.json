@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-03-13T08:45:32.410Z",
-  "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
+  "generated_at": "2026-03-13T21:39:19.632Z",
+  "source": "SurfaceGTFS.zip",
   "stats": {
-    "routes": 225,
-    "trips": 127138,
-    "stops": 9111,
-    "shapes": 1380,
-    "stop_times_trips": 127134,
-    "stop_times_route_files": 220
+    "routes": 223,
+    "trips": 125715,
+    "stops": 9109,
+    "shapes": 1376,
+    "stop_times_trips": 125711,
+    "stop_times_route_files": 219
   },
   "stop_times_files": {
     "7": "stop-times-route-7.json",
@@ -138,7 +138,6 @@
     "149": "stop-times-route-149.json",
     "151": "stop-times-route-151.json",
     "154": "stop-times-route-154.json",
-    "156": "stop-times-route-156.json",
     "158": "stop-times-route-158.json",
     "160": "stop-times-route-160.json",
     "161": "stop-times-route-161.json",
@@ -154,7 +153,6 @@
     "185": "stop-times-route-185.json",
     "189": "stop-times-route-189.json",
     "191": "stop-times-route-191.json",
-    "203": "stop-times-route-203.json",
     "300": "stop-times-route-300.json",
     "301": "stop-times-route-301.json",
     "304": "stop-times-route-304.json",
@@ -200,6 +198,7 @@
     "511": "stop-times-route-511.json",
     "512": "stop-times-route-512.json",
     "805": "stop-times-route-805.json",
+    "806": "stop-times-route-806.json",
     "830": "stop-times-route-830.json",
     "882": "stop-times-route-882.json",
     "900": "stop-times-route-900.json",

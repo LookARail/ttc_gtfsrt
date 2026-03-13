@@ -27,13 +27,6 @@
     "route_type": 3,
     "route_color": "FFFFFF"
   },
-  "6": {
-    "route_id": "6",
-    "route_short_name": "6",
-    "route_long_name": "Line 6 Shuttle Bus",
-    "route_type": 3,
-    "route_color": "ffffff"
-  },
   "7": {
     "route_id": "7",
     "route_short_name": "7",
@@ -930,13 +923,6 @@
     "route_type": 3,
     "route_color": "ed1c24"
   },
-  "156": {
-    "route_id": "156",
-    "route_short_name": "156",
-    "route_long_name": "Millwood",
-    "route_type": 3,
-    "route_color": "ed1c24"
-  },
   "158": {
     "route_id": "158",
     "route_short_name": "158",
@@ -1041,13 +1027,6 @@
     "route_long_name": "Underhill",
     "route_type": 3,
     "route_color": "ed1c24"
-  },
-  "203": {
-    "route_id": "203",
-    "route_short_name": "203",
-    "route_long_name": "High Park",
-    "route_type": 3,
-    "route_color": "e472ac"
   },
   "300": {
     "route_id": "300",
@@ -1362,7 +1341,14 @@
     "route_short_name": "805",
     "route_long_name": "Line 5 Shuttle",
     "route_type": 3,
-    "route_color": "ff8000"
+    "route_color": "939598"
+  },
+  "806": {
+    "route_id": "806",
+    "route_short_name": "806",
+    "route_long_name": "Line 6 Shuttle",
+    "route_type": 3,
+    "route_color": "939598"
   },
   "830": {
     "route_id": "830",
