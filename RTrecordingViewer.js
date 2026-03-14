@@ -4,12 +4,12 @@
 (function() {
   'use strict';
 
-  // GitHub configuration - Update with your repository details
-  const GITHUB_REPO = "LookArail/ttc_gtfsrt";
-  const GITHUB_BRANCH = "main";
-  const GITHUB_RAW_BASE = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}`;
-  
-  const TORONTO_TZ = 'America/Toronto';
+  // GitHub configuration - can be overridden by runtime config
+  const GITHUB_REPO = (window.APP_CONFIG && window.APP_CONFIG.githubRepo) || "";
+  const GITHUB_BRANCH = (window.APP_CONFIG && window.APP_CONFIG.githubBranch) || "main";
+  const GITHUB_RAW_BASE = GITHUB_REPO ? `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}` : "";
+
+  const TIME_ZONE = (window.APP_CONFIG && window.APP_CONFIG.timeZone) || 'UTC';
   let viewerWindow = null;
   let currentData = null;
   let stopsData = null;
@@ -61,33 +61,45 @@
 
   async function loadStopsData() {
     if (stopsData) return stopsData;
-    
+    if (!GITHUB_RAW_BASE) {
+      console.warn('[Viewer] githubRepo not configured — skipping stops data load');
+      return {};
+    }
+
     try {
       const response = await fetch(`${GITHUB_RAW_BASE}/data/stops.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       stopsData = await response.json();
       return stopsData;
     } catch (err) {
-      console.error('Failed to load stops data:', err);
+      console.error('Failed to load stops data from GitHub:', err);
       return {};
     }
   }
 
   async function loadRoutesData() {
     if (routesData) return routesData;
-    
+    if (!GITHUB_RAW_BASE) {
+      console.warn('[Viewer] githubRepo not configured — skipping routes data load');
+      return {};
+    }
+
     try {
       const response = await fetch(`${GITHUB_RAW_BASE}/data/routes.json`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       routesData = await response.json();
       return routesData;
     } catch (err) {
-      console.error('Failed to load routes data:', err);
+      console.error('Failed to load routes data from GitHub:', err);
       return {};
     }
   }
 
   async function scanAvailableRecordings() {
+    if (!GITHUB_RAW_BASE) {
+      console.warn('[Viewer] githubRepo not configured — skipping scan for GitHub recordings');
+      return [];
+    }
     const available = [];
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1); // Start from tomorrow
@@ -148,9 +160,13 @@
   }
 
   async function loadFromGitHub(dateStr) {
+    if (!GITHUB_RAW_BASE) {
+      throw new Error('No GitHub repo configured (githubRepo missing in config.json). Cannot load recordings from GitHub.');
+    }
+
     const response = await fetch(`${GITHUB_RAW_BASE}/recordedRTData/${dateStr}.json`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
     return {
       ...data,

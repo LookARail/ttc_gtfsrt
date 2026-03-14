@@ -134,6 +134,20 @@
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   
   <!-- Main viewer script -->
-  <script src="RTrecordingViewer.js"></script>
+  <script>
+  (async function () {
+    try {
+      const res = await fetch('/config.json');
+      window.APP_CONFIG = (res && res.ok) ? await res.json() : {};
+    } catch (err) {
+      console.warn('[Viewer] could not load /config.json', err);
+      window.APP_CONFIG = window.APP_CONFIG || {};
+    }
+    const s = document.createElement('script');
+    s.src = 'RTrecordingViewer.js';
+    s.defer = true;
+    document.body.appendChild(s);
+  })();
+  </script>
 </body>
 </html>

@@ -78,11 +78,29 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
+  <!-- Load runtime config then application scripts -->
+  <script>
+    (async function() {
+      try {
+        const resp = await fetch('config.json');
+        if (resp.ok) window.APP_CONFIG = await resp.json();
+        else window.APP_CONFIG = {};
+      } catch (e) {
+        console.error('Failed to load config.json', e);
+        window.APP_CONFIG = {};
+      }
 
-  <!-- RT Recording Viewer -->
-  <script src="RTrecordingViewer.js"></script>
-
-  <!-- Main application script -->
-  <script src="main.js"></script>
+      const apps = ['RTrecordingViewer.js', 'main.js'];
+      for (const src of apps) {
+        await new Promise(resolve => {
+          const s = document.createElement('script');
+          s.src = src;
+          s.onload = () => resolve();
+          s.onerror = () => { console.error('Failed to load', src); resolve(); };
+          document.body.appendChild(s);
+        });
+      }
+    })();
+  </script>
 </body>
 </html>

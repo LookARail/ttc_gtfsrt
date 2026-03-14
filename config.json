@@ -1,0 +1,11 @@
+{
+  "agencyId": "ttc",
+  "feedUrl": "https://ttc-gtfsrt.onrender.com/vehicles",
+  "githubRepo": "LookArail/ttc_gtfsrt",
+  "githubBranch": "main",
+  "timeZone": "America/Toronto",
+  "map": {
+    "center": [43.6532, -79.3832],
+    "zoom": 12
+  }
+}

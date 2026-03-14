@@ -1,17 +1,16 @@
 (function () {
   // --- Config ---
-  const FEED_URL = "https://ttc-gtfsrt.onrender.com/vehicles"; // Server endpoint that returns decoded GTFS-RT JSON
+  const FEED_URL = (window.APP_CONFIG && window.APP_CONFIG.feedUrl) || ""; // Server endpoint that returns decoded GTFS-RT JSON (from config.json)
   const POLL_MS = 10_000;
 
   // GitHub repository for processed GTFS data
   // Update this with your GitHub username/repository
-  const GITHUB_REPO = "LookArail/ttc_gtfsrt"; // e.g., "username/gtfs-processed-data"
-  const GITHUB_BRANCH = "main";
-  const GTFS_DATA_BASE_URL = `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data`;
+  const GITHUB_REPO = (window.APP_CONFIG && window.APP_CONFIG.githubRepo) || ""; // e.g., "username/gtfs-processed-data"
+  const GITHUB_BRANCH = (window.APP_CONFIG && window.APP_CONFIG.githubBranch) || "main";
+  const GTFS_DATA_BASE_URL = GITHUB_REPO ? `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}/data` : "";
 
-  // We'll render timestamps using the Toronto time zone *name* (no fixed offset),
-  // which avoids hard-coding offsets and respects DST automatically.
-  const TORONTO_TZ = "America/Toronto";
+  // Time zone to use for displaying and interpreting scheduled times
+  const TIME_ZONE = (window.APP_CONFIG && window.APP_CONFIG.timeZone) || "UTC";
 
   // GTFS Static Data (loaded from GitHub processed files)
   let gtfsData = {
@@ -41,6 +40,8 @@
   // Cache: vehicle_id -> { tripId, routeId, tripData, routeData }
   // Reused across RT feed updates so we don't re-link every vehicle every poll.
   const staticLinkCache = new Map();
+  // Cache: vehicle_id -> { tripId, routeId, tripData, routeData }
+  // Reused across RT feed updates so we don't re-link every vehicle every poll.
   
   // Bus icon size configuration - customize these values
   const BUS_ICON_CONFIG = {
@@ -83,8 +84,13 @@
   
   async function loadGTFSData() {
     try {
+      if (!GTFS_DATA_BASE_URL) {
+        console.error('[GTFS] githubRepo not configured in config.json — cannot load GTFS static files.');
+        setStatus('Missing GTFS data configuration', 'error');
+        return;
+      }
       setStatus('Loading GTFS data...', null);
-      
+
       // Load all core files in parallel (except stop-times which load on-demand)
       const [routes, trips, stops, shapes, shapeRouteMap, metadata] = await Promise.all([
         fetch(`${GTFS_DATA_BASE_URL}/routes.json`).then(r => r.json()),
@@ -432,10 +438,18 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Map init (Toronto downtown)
+  // Map init (default center from config or Toronto downtown)
   const map = L.map('map', {
     worldCopyJump: true
   }).setView([43.6532, -79.3832], 12);
+  // If a config map center/zoom is provided, apply it
+  if (window.APP_CONFIG && window.APP_CONFIG.map) {
+    try {
+      const c = window.APP_CONFIG.map.center || [43.6532, -79.3832];
+      const z = window.APP_CONFIG.map.zoom || 12;
+      map.setView(c, z);
+    } catch (e) { /* ignore invalid config */ }
+  }
 
   // OSM tiles
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -467,9 +481,9 @@
   function formatTimestamp(epochSeconds) {
     if (!Number.isFinite(epochSeconds)) return '—';
     const d = new Date(epochSeconds * 1000);
-    // Format as local Toronto time without hard-coding offset
+    // Format using configured time zone without hard-coding offset
     return new Intl.DateTimeFormat(undefined, {
-      timeZone: TORONTO_TZ,
+      timeZone: TIME_ZONE,
       hour: '2-digit', minute: '2-digit', second: '2-digit',
       year: 'numeric', month: 'short', day: '2-digit'
     }).format(d);
@@ -479,6 +493,39 @@
     if (!Number.isFinite(epochSeconds)) return undefined;
     return (Date.now() / 1000) - epochSeconds;
     // Positive: how many seconds ago this update was
+  }
+
+  // ============================================================================
+  // BEARING COMPUTATION (for feeds that don't provide bearing)
+  // ============================================================================
+  
+  // Cache of last seen position per vehicle: id -> { lat, lon, ts }
+  const lastPositions = new Map();
+
+  function toRadians(deg) { return deg * Math.PI / 180; }
+  function toDegrees(rad) { return rad * 180 / Math.PI; }
+
+  // Compute initial bearing (forward azimuth) from point A to B (degrees, 0..360)
+  function computeBearing(lat1, lon1, lat2, lon2) {
+    const φ1 = toRadians(lat1);
+    const φ2 = toRadians(lat2);
+    const Δλ = toRadians(lon2 - lon1);
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+    const θ = Math.atan2(y, x);
+    return (toDegrees(θ) + 360) % 360;
+  }
+
+  // Haversine distance in meters
+  function distanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const φ1 = toRadians(lat1);
+    const φ2 = toRadians(lat2);
+    const Δφ = toRadians(lat2 - lat1);
+    const Δλ = toRadians(lon2 - lon1);
+    const a = Math.sin(Δφ/2)**2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2)**2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
   }
 
   // Create a rotated bus icon marker with zoom-based sizing
@@ -536,6 +583,10 @@
       if (!gtfsData.stopTimesByRoute[routeId]) {
         const filename = gtfsData.metadata.stop_times_files[routeId];
         if (filename) {
+          if (!GTFS_DATA_BASE_URL) {
+            console.warn(`[GTFS] Skipping stop-times load for ${routeId}: GTFS_DATA_BASE_URL not configured`);
+            continue;
+          }
           const promise = fetch(`${GTFS_DATA_BASE_URL}/${filename}`)
             .then(r => r.json())
             .then(data => {
@@ -600,9 +651,36 @@
     const lon = toNumber(pos.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || !id) return;
 
-    const bearing = toNumber(pos.bearing, 0);
-    const speed = toNumber(pos.speed); // m/s if present
     const ts = toNumber(v?.vehicle?.timestamp || v?.timestamp);
+    const speed = toNumber(pos.speed); // m/s if present
+
+    // Try to get bearing from feed; compute from position if missing
+    const rawBearing = toNumber(pos.bearing, null);
+    let computedBearing = null;
+    
+    const prev = lastPositions.get(id);
+    let dt = null;
+    let dist = null;
+    if (prev && Number.isFinite(prev.lat) && Number.isFinite(prev.lon) && Number.isFinite(ts)) {
+      dt = ts - (prev.ts || 0);
+      dist = distanceMeters(prev.lat, prev.lon, lat, lon);
+      // Only compute if moved enough and time difference reasonable (avoid tiny jitter)
+      // dt < 300s (5min), dist >= 5m
+      if (dt > 0 && dt < 300 && dist >= 5) {
+        computedBearing = computeBearing(prev.lat, prev.lon, lat, lon);
+      }
+    }
+    
+    const m = markers.get(id);
+    // Get previously computed bearing (from last update where we actually computed)
+    const prevComputedBearing = m ? m._lastComputedBearing : null;
+    
+    // Prefer feed bearing > computed bearing > previously computed bearing > 0
+    const bearing = Number.isFinite(rawBearing)
+      ? rawBearing
+      : (computedBearing !== null ? computedBearing : (prevComputedBearing !== null ? prevComputedBearing : 0));
+
+    // (no per-poll debug logging)
 
     // Enrich with GTFS static data using cache
     // Note: RT feed uses camelCase (tripId, routeId), not snake_case (trip_id, route_id)
@@ -617,7 +695,6 @@
 
     // Always try to link if GTFS is loaded, OR if this is an existing marker
     // without valid static data yet (failsafe for race condition)
-    const m = markers.get(id);
     const shouldLink = gtfsData.isLoaded || (m && m._routeType === null && tripId);
 
     if (shouldLink) {
@@ -721,6 +798,11 @@
     marker._routeId   = resolvedRouteId;
     marker._routeType = link && link.routeData ? toNumber(link.routeData.route_type) : null;
     marker._bearing   = bearing; // Store bearing for icon recreation on zoom
+    // Store last computed bearing for fallback on future updates when distance < 5m
+    marker._lastComputedBearing = computedBearing !== null ? computedBearing : prevComputedBearing;
+
+    // Store last position for next bearing computation
+    lastPositions.set(id, { lat, lon, ts });
 
     // Show or hide based on active filter (use explicit _visible flag, not Leaflet internals)
     const visible = passesFilter(marker._routeId);
@@ -744,6 +826,7 @@
         m._visible = false;
         markers.delete(id);
         staticLinkCache.delete(id);
+        lastPositions.delete(id);
       }
     }
     updateVehicleCount();
@@ -772,6 +855,11 @@
     const timeout = setTimeout(() => controller.abort(), 10_000); // 10s timeout
     try {
       setStatus('Updating…', null);
+      if (!FEED_URL) {
+        console.warn('[Feed] FEED_URL not configured in config.json — skipping vehicle fetch');
+        setStatus('Feed URL missing', 'error');
+        return;
+      }
       const resp = await fetch(FEED_URL, { signal: controller.signal, cache: 'no-store' });
       clearTimeout(timeout); // Clear timeout on successful fetch
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -780,21 +868,25 @@
       const data = await resp.json();
       const entities = Array.isArray(data?.entity) ? data.entity : (Array.isArray(data) ? data : []);
 
+      // Build set of vehicle ids from feed, then process entities
       const seen = new Set();
+      for (const e of entities) {
+        try {
+          const id = e?.vehicle?.vehicle?.id || e?.id || e?.vehicle?.id || e?.vehicle?.label;
+          if (id) seen.add(String(id));
+        } catch (err) {}
+      }
       for (const e of entities) {
         // guard per-entity
         try {
           upsertMarker(e);
-          const id =
-            e?.vehicle?.vehicle?.id || e?.id || e?.vehicle?.id || e?.vehicle?.label;
-          if (id) seen.add(id);
         } catch (err) {
           // skip malformed
           console.debug('Entity parse skipped', err);
         }
       }
       // Keep last positions on failure is enabled; on success, prune missing
-      pruneMarkers(seen);      
+      pruneMarkers(seen);
 
       // Determine staleness from max vehicle timestamp (if present)
       let newestTs = undefined;
@@ -878,7 +970,7 @@
   // RT Data Recorder: Collect trip update data for performance analysis
   // ---------------------------------------------------------------------------
   
-  const TRIP_UPDATE_URL = "https://ttc-gtfsrt.onrender.com/trip-updates";
+  const TRIP_UPDATE_URL = (window.APP_CONFIG && window.APP_CONFIG.tripUpdateUrl) || "";
   const TRIP_UPDATE_INTERVAL_MS = 60_000; // 60 seconds
   
   // Recording state
@@ -928,6 +1020,11 @@
       }
       
       console.log(`[RT Recorder] Loading scheduled times for route ${routeId}...`);
+      if (!GTFS_DATA_BASE_URL) {
+        console.warn(`[RT Recorder] Cannot load scheduled times for route ${routeId}: GTFS_DATA_BASE_URL not configured`);
+        loadingRoutes.delete(routeId);
+        return;
+      }
       const resp = await fetch(`${GTFS_DATA_BASE_URL}/${filename}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       
@@ -1181,7 +1278,7 @@
     // Get date components in Toronto timezone
     const actualDate = new Date(actualEpochSeconds * 1000);
     const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: TORONTO_TZ,
+      timeZone: TIME_ZONE,
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -1248,7 +1345,7 @@
       // Check if we have actual RT arrival data
       if (stop.arr !== null) {
         const actualTime = new Date(stop.arr * 1000).toLocaleTimeString('en-US', {
-          timeZone: TORONTO_TZ,
+          timeZone: TIME_ZONE,
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit'
@@ -1262,7 +1359,7 @@
           
           if (scheduledEpoch !== null) {
             const schTime = new Date(scheduledEpoch * 1000).toLocaleTimeString('en-US', {
-              timeZone: TORONTO_TZ,
+              timeZone: TIME_ZONE,
               hour: '2-digit',
               minute: '2-digit',
               second: '2-digit'
@@ -1281,7 +1378,7 @@
           
           if (scheduledEpoch !== null) {
             const schTime = new Date(scheduledEpoch * 1000).toLocaleTimeString('en-US', {
-              timeZone: TORONTO_TZ,
+              timeZone: TIME_ZONE,
               hour: '2-digit',
               minute: '2-digit',
               second: '2-digit'
