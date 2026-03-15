@@ -17,9 +17,15 @@
   let selectedRouteIds = new Set();
   let timeFilterStart = null;
   let timeFilterEnd = null;
+  let timeFilterBaseDay = null; // epoch seconds of base day used for extended time display
+  let timeFilterStartEpoch = null; // computed epoch start after applying base day
+  let timeFilterEndEpoch = null;
   let processedData = {
     tripSummaries: [],
     stopDeltas: [],
+    stopDeltasByTrip: {},
+    routeStats: {},
+    stopStats: {},
     routeAggregations: [],
     stopAggregations: []
   };
@@ -53,6 +59,28 @@
     
     const sign = seconds >= 0 ? '+' : '-';
     return `${sign}${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  // Convert epoch seconds to extended HH:MM:SS where hours may be >= 24 using baseDay
+  function convertEpochToExtendedTime(epochSeconds, baseDay) {
+    if (epochSeconds == null || baseDay == null) return '';
+    const delta = Math.max(0, Math.floor(epochSeconds - baseDay));
+    const hrs = Math.floor(delta / 3600);
+    const mins = Math.floor((delta % 3600) / 60);
+    const secs = Math.floor(delta % 60);
+    return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  }
+
+  // Parse extended time string HH:MM or HH:MM:SS (hours may be >=24) to seconds offset
+  function parseExtendedTimeToOffset(s) {
+    if (!s || typeof s !== 'string') return null;
+    const parts = s.trim().split(':').map(p => Number(p));
+    if (parts.length < 2) return null;
+    const hrs = Number.isFinite(parts[0]) ? parts[0] : null;
+    const mins = Number.isFinite(parts[1]) ? parts[1] : 0;
+    const secs = parts.length >= 3 && Number.isFinite(parts[2]) ? parts[2] : 0;
+    if (hrs === null || isNaN(hrs) || isNaN(mins) || isNaN(secs)) return null;
+    return Math.floor(hrs) * 3600 + Math.floor(mins) * 60 + Math.floor(secs);
   }
 
   // ============================================================================
@@ -212,14 +240,19 @@
     });
     
     const tripSummaries = [];
-    const stopDeltas = [];
+    const stopDeltas = []; // Keep flat array for backward compatibility
+    const stopDeltasByTrip = {}; // tripId -> [stopDeltas]
+    const routeStats = {}; // routeId -> { delaySum, delayCount, tripHours, tripCount, delays }
+    const stopStats = {}; // stopId -> { incDelaySum, incDelayCount, recordCount, delays }
     let debugSampleShown = false;
     
-    // Process each trip
+    // FIRST PASS: Process each trip, build stopDeltasByTrip and collect raw data
     for (const tripId in recordedData) {
       const trip = recordedData[tripId];
       let maxDelay = null;
       const tripStopDeltas = []; // Store stops for this trip to compute incremental delays
+      let firstRecordedTime = null;
+      let lastRecordedTime = null;
       
       // Process each stop in the trip
       for (const stopSeq in trip.stops) {
@@ -228,8 +261,14 @@
         // Skip if no actual arrival time
         if (!stop.arr) continue;
         
-        // Get scheduled arrival time (already in epoch seconds, Toronto timezone)
+        // Get scheduled arrival time (already in epoch seconds)
         const scheduledEpoch = stop.sch_arr || stop.sch_dep;
+        // Also capture recorded (actual) times for this trip
+        const actualEpoch = stop.arr || stop.dep || null;
+        if (actualEpoch) {
+          if (firstRecordedTime === null || actualEpoch < firstRecordedTime) firstRecordedTime = actualEpoch;
+          if (lastRecordedTime === null || actualEpoch > lastRecordedTime) lastRecordedTime = actualEpoch;
+        }
         if (!scheduledEpoch) {
           const stopDelta = {
             tripId,
@@ -300,6 +339,9 @@
         }
       }
       
+      // Store tripStopDeltas in the nested structure for O(1) lookup
+      stopDeltasByTrip[tripId] = tripStopDeltas;
+      
       // Calculate scheduled duration for this trip
       let scheduledDuration = null;
       let firstScheduledTime = null;
@@ -332,7 +374,7 @@
         }
       }
       
-      // Record trip summary
+      // Record trip summary (include recorded time range)
       tripSummaries.push({
         tripId,
         routeId: trip.rid,
@@ -341,8 +383,55 @@
         stopCount: Object.keys(trip.stops).length,
         scheduledDuration,
         firstScheduledTime,
-        lastScheduledTime
+        lastScheduledTime,
+        firstRecordedTime,
+        lastRecordedTime
       });
+    }
+    
+    // SECOND PASS: Pre-compute route and stop statistics for faster aggregation
+    for (const stopDelta of stopDeltas) {
+      // Accumulate route-level stats
+      if (!routeStats[stopDelta.routeId]) {
+        routeStats[stopDelta.routeId] = {
+          delaySum: 0,
+          delayCount: 0,
+          tripHours: 0,
+          tripCount: 0,
+          delays: []
+        };
+      }
+      
+      if (stopDelta.delta !== null) {
+        routeStats[stopDelta.routeId].delaySum += stopDelta.delta;
+        routeStats[stopDelta.routeId].delayCount++;
+        routeStats[stopDelta.routeId].delays.push(stopDelta.delta);
+      }
+      
+      // Accumulate stop-level stats
+      if (!stopStats[stopDelta.stopId]) {
+        stopStats[stopDelta.stopId] = {
+          incDelaySum: 0,
+          incDelayCount: 0,
+          recordCount: 0,
+          delays: []
+        };
+      }
+      
+      stopStats[stopDelta.stopId].recordCount++;
+      if (stopDelta.incrementalDelay !== null) {
+        stopStats[stopDelta.stopId].incDelaySum += stopDelta.incrementalDelay;
+        stopStats[stopDelta.stopId].incDelayCount++;
+        stopStats[stopDelta.stopId].delays.push(stopDelta.incrementalDelay);
+      }
+    }
+    
+    // Finalize route stats by adding trip info
+    for (const trip of tripSummaries) {
+      if (trip.scheduledDuration !== null && routeStats[trip.routeId]) {
+        routeStats[trip.routeId].tripHours += trip.scheduledDuration / 3600;
+        routeStats[trip.routeId].tripCount++;
+      }
     }
     
     console.log('[Viewer] Processing complete:', {
@@ -351,6 +440,8 @@
       deltasWithValues: stopDeltas.filter(d => d.delta !== null).length,
       deltasWithIncrementalDelay: stopDeltas.filter(d => d.incrementalDelay !== null).length,
       tripsWithMaxDelay: tripSummaries.filter(t => t.maxDelay !== null).length,
+      preComputedRoutes: Object.keys(routeStats).length,
+      preComputedStops: Object.keys(stopStats).length,
       sampleTripsWithDelay: tripSummaries.filter(t => t.maxDelay !== null).slice(0, 3).map(t => ({ 
         routeId: t.routeId, 
         maxDelay: t.maxDelay 
@@ -361,7 +452,7 @@
       }))
     });
     
-    return { tripSummaries, stopDeltas };
+    return { tripSummaries, stopDeltas, stopDeltasByTrip, routeStats, stopStats };
   }
 
   function aggregateByRoute(tripSummaries, selectedRoutes) {
@@ -466,55 +557,32 @@
     return topStops;
   }
 
-  function aggregateByBusiestRoutes(tripSummaries, selectedRoutes, stopDeltas) {
+  function aggregateByBusiestRoutes(tripSummaries, selectedRoutes, routeStats) {
     console.log('[Viewer] Aggregating busiest routes:', {
       totalTrips: tripSummaries.length,
-      selectedRoutes: Array.from(selectedRoutes)
+      selectedRoutes: Array.from(selectedRoutes),
+      preComputedRoutes: Object.keys(routeStats).length
     });
     
-    const routeMap = {};
-    
-    for (const trip of tripSummaries) {
-      if (selectedRoutes.size > 0 && !selectedRoutes.has(trip.routeId)) continue;
-      if (trip.scheduledDuration === null) continue;
-      
-      if (!routeMap[trip.routeId]) {
-        routeMap[trip.routeId] = {
-          routeId: trip.routeId,
-          tripHours: 0,
-          tripCount: 0,
-          delays: []
-        };
-      }
-      
-      // Add trip-hours (scheduled duration in hours)
-      routeMap[trip.routeId].tripHours += trip.scheduledDuration / 3600;
-      routeMap[trip.routeId].tripCount++;
-      
-      // Collect delays from all stops for this trip
-      const tripDelays = stopDeltas.filter(d => d.tripId === trip.tripId && d.delta !== null);
-      for (const stopDelta of tripDelays) {
-        routeMap[trip.routeId].delays.push(stopDelta.delta);
-      }
-    }
-    
-    // Calculate averages
+    // Use pre-computed routeStats instead of filtering stopDeltas (O(1) instead of O(trips * stops))
     const aggregations = [];
-    for (const routeId in routeMap) {
-      const route = routeMap[routeId];
+    
+    for (const routeId in routeStats) {
+      if (selectedRoutes.size > 0 && !selectedRoutes.has(routeId)) continue;
       
-      let avgDelay = 0;
-      if (route.delays.length > 0) {
-        avgDelay = route.delays.reduce((sum, d) => sum + d, 0) / route.delays.length;
+      const stats = routeStats[routeId];
+      const avgDelay = stats.delayCount > 0 ? stats.delaySum / stats.delayCount : 0;
+      
+      // Only include if route has valid trip data
+      if (stats.tripCount > 0) {
+        aggregations.push({
+          routeId,
+          tripHours: stats.tripHours,
+          tripCount: stats.tripCount,
+          avgDelay,
+          delayCount: stats.delayCount
+        });
       }
-      
-      aggregations.push({
-        routeId,
-        tripHours: route.tripHours,
-        tripCount: route.tripCount,
-        avgDelay,
-        delayCount: route.delays.length
-      });
     }
     
     // Sort by tripHours descending, take top 10
@@ -666,6 +734,9 @@
         const processed = processData(data);
         processedData.tripSummaries = processed.tripSummaries;
         processedData.stopDeltas = processed.stopDeltas;
+        processedData.stopDeltasByTrip = processed.stopDeltasByTrip;
+        processedData.routeStats = processed.routeStats;
+        processedData.stopStats = processed.stopStats;
         
         // Initialize route filter
         initializeRouteFilter(doc, processed.tripSummaries);
@@ -718,22 +789,33 @@
       selectedRouteIds.clear();
       checkboxes.forEach(cb => selectedRouteIds.add(cb.value));
       
-      // Read time filter values
+      // Read time filter values (extended HH:MM[:SS]) and compute epoch range
       const timeStartInput = doc.getElementById('timeStart');
       const timeEndInput = doc.getElementById('timeEnd');
-      
-      if (timeStartInput.value && timeEndInput.value) {
-        timeFilterStart = convertTimeInputToScheduled(timeStartInput.value);
-        timeFilterEnd = convertTimeInputToScheduled(timeEndInput.value);
+
+      if (timeStartInput.value && timeEndInput.value && timeFilterBaseDay != null) {
+        const offsetStart = parseExtendedTimeToOffset(timeStartInput.value);
+        const offsetEnd = parseExtendedTimeToOffset(timeEndInput.value);
+        if (offsetStart != null && offsetEnd != null) {
+          timeFilterStartEpoch = timeFilterBaseDay + offsetStart;
+          timeFilterEndEpoch = timeFilterBaseDay + offsetEnd;
+          // If end is before start, assume it wraps to next day
+          if (timeFilterEndEpoch < timeFilterStartEpoch) {
+            timeFilterEndEpoch += 86400;
+          }
+        } else {
+          timeFilterStartEpoch = null;
+          timeFilterEndEpoch = null;
+        }
       } else {
-        timeFilterStart = null;
-        timeFilterEnd = null;
+        timeFilterStartEpoch = null;
+        timeFilterEndEpoch = null;
       }
       
       console.log('[Viewer] Apply filter clicked:', {
         selectedCount: selectedRouteIds.size,
         selectedRoutes: Array.from(selectedRouteIds),
-        timeFilter: { start: timeFilterStart, end: timeFilterEnd }
+        timeFilterEpoch: { start: timeFilterStartEpoch, end: timeFilterEndEpoch }
       });
       
       // Update time filter range based on current dataset
@@ -817,54 +899,50 @@
     const timeStartInput = doc.getElementById('timeStart');
     const timeEndInput = doc.getElementById('timeEnd');
     const timeRangeInfo = doc.getElementById('timeRangeInfo');
-    
+
     if (!processedData.tripSummaries || processedData.tripSummaries.length === 0) {
       timeStartInput.disabled = true;
       timeEndInput.disabled = true;
       timeRangeInfo.innerHTML = 'No trips available';
       return;
     }
-    
+
     // Get currently checked routes (not yet applied)
     const checkedRoutes = new Set();
     const checkboxes = doc.querySelectorAll('.route-filter input[type="checkbox"]:checked');
     checkboxes.forEach(cb => checkedRoutes.add(cb.value));
-    
-    // Find min and max scheduled times (in epoch seconds) across checked routes
+
+    // Find min and max recorded times (in epoch seconds) across checked routes
     let minTime = null;
     let maxTime = null;
-    
+
     for (const trip of processedData.tripSummaries) {
       if (checkedRoutes.size > 0 && !checkedRoutes.has(trip.routeId)) continue;
-      
-      if (trip.firstScheduledTime) {
-        if (minTime === null || trip.firstScheduledTime < minTime) {
-          minTime = trip.firstScheduledTime;
+
+      if (trip.firstRecordedTime) {
+        if (minTime === null || trip.firstRecordedTime < minTime) {
+          minTime = trip.firstRecordedTime;
         }
       }
-      
-      if (trip.lastScheduledTime) {
-        if (maxTime === null || trip.lastScheduledTime > maxTime) {
-          maxTime = trip.lastScheduledTime;
+
+      if (trip.lastRecordedTime) {
+        if (maxTime === null || trip.lastRecordedTime > maxTime) {
+          maxTime = trip.lastRecordedTime;
         }
       }
     }
-    
+
     if (minTime !== null && maxTime !== null) {
       timeStartInput.disabled = false;
       timeEndInput.disabled = false;
-      
-      // Convert to HH:MM for display and input
-      timeStartInput.value = convertScheduledToTimeInput(minTime);
-      timeEndInput.value = convertScheduledToTimeInput(maxTime);
-      
-      const formatMinutes = (seconds) => {
-        const hours = Math.floor(seconds / 3600) % 24;
-        const minutes = Math.floor((seconds % 3600) / 60);
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      };
-      
-      timeRangeInfo.innerHTML = `Available range: ${formatMinutes(minTime)} to ${formatMinutes(maxTime)}`;
+
+      // Base day is the midnight epoch of the earliest recorded time
+      const baseDay = Math.floor(minTime / 86400) * 86400;
+      timeFilterBaseDay = baseDay;
+
+      // Show extended HH:MM:SS where hours may be >24
+      timeStartInput.value = convertEpochToExtendedTime(minTime, baseDay);
+      timeEndInput.value = convertEpochToExtendedTime(maxTime, baseDay);
     } else {
       timeStartInput.disabled = true;
       timeEndInput.disabled = true;
@@ -1441,26 +1519,26 @@
     let filteredTripSummaries = processedData.tripSummaries;
     let filteredStopDeltas = processedData.stopDeltas;
     
-    if (timeFilterStart !== null && timeFilterEnd !== null) {
+    if (timeFilterStartEpoch !== null && timeFilterEndEpoch !== null) {
       const filteredTripIds = new Set();
-      
+
       for (const trip of processedData.tripSummaries) {
-        if (!trip.firstScheduledTime || !trip.lastScheduledTime) continue;
-        
-        // Check if any part of the trip is within the time filter range
-        if (isTimeInRange(trip.firstScheduledTime, timeFilterStart, timeFilterEnd) ||
-            isTimeInRange(trip.lastScheduledTime, timeFilterStart, timeFilterEnd) ||
-            (isTimeBefore(trip.firstScheduledTime, timeFilterStart) && isTimeBefore(timeFilterEnd, trip.lastScheduledTime))) {
+        if (!trip.firstRecordedTime || !trip.lastRecordedTime) continue;
+
+        // Interval overlap test: trip [firstRecordedTime, lastRecordedTime] intersects filter [start, end]
+        const tripStart = trip.firstRecordedTime;
+        const tripEnd = trip.lastRecordedTime;
+        if (tripEnd >= timeFilterStartEpoch && tripStart <= timeFilterEndEpoch) {
           filteredTripIds.add(trip.tripId);
         }
       }
-      
+
       filteredTripSummaries = processedData.tripSummaries.filter(t => filteredTripIds.has(t.tripId));
       filteredStopDeltas = processedData.stopDeltas.filter(s => filteredTripIds.has(s.tripId));
     }
     
     const routeAgg = aggregateByRoute(filteredTripSummaries, selectedRouteIds);
-    const busiestRoutesAgg = aggregateByBusiestRoutes(filteredTripSummaries, selectedRouteIds, filteredStopDeltas);
+    const busiestRoutesAgg = aggregateByBusiestRoutes(filteredTripSummaries, selectedRouteIds, processedData.routeStats);
     const stopAgg = aggregateByStop(filteredStopDeltas, selectedRouteIds, stopsData);
     
     console.log('[Viewer] Aggregation complete:', {

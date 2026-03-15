@@ -58,15 +58,12 @@
         
         <h3 style="margin-top: 20px;">Time Filter</h3>
         <div class="time-filter">
-          <div class="form-group">
-            <label for="timeStart">Start Time:</label>
-            <input type="time" id="timeStart" disabled>
+          <div class="form-group time-filter-row">
+            <label for="timeStart">Start:</label>
+            <input type="text" id="timeStart" placeholder="HH:MM:SS" disabled style="width:120px;margin-right:8px;">
+            <label for="timeEnd" style="margin-left:8px;">End:</label>
+            <input type="text" id="timeEnd" placeholder="HH:MM:SS" disabled style="width:120px;">
           </div>
-          <div class="form-group">
-            <label for="timeEnd">End Time:</label>
-            <input type="time" id="timeEnd" disabled>
-          </div>
-          <div class="time-range-info" id="timeRangeInfo"></div>
         </div>
         
         <div class="apply-filter-container">
