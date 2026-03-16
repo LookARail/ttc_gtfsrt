@@ -59,13 +59,18 @@
         <h3 style="margin-top: 20px;">Time Filter</h3>
         <div class="time-filter">
           <div class="form-group time-filter-row">
-            <label for="timeStart">Start:</label>
-            <input type="text" id="timeStart" placeholder="HH:MM:SS" disabled style="width:120px;margin-right:8px;">
-            <label for="timeEnd" style="margin-left:8px;">End:</label>
-            <input type="text" id="timeEnd" placeholder="HH:MM:SS" disabled style="width:120px;">
+            <div class="time-col">
+              <label for="timeStart">Start:</label>
+              <input type="text" id="timeStart" placeholder="HH:MM:SS" disabled class="time-input">
+            </div>
+            <div class="time-col">
+              <label for="timeEnd">End:</label>
+              <input type="text" id="timeEnd" placeholder="HH:MM:SS" disabled class="time-input">
+            </div>
           </div>
+          <div id="timeRangeInfo" class="time-range-info">Available range: —</div>
         </div>
-        
+
         <div class="apply-filter-container">
           <button id="applyFilter" class="primary-btn">Apply Filters</button>
         </div>
@@ -100,6 +105,11 @@
             <div class="chart-wrapper">
               <div class="chart-title">Top 20 Stops by Average Incremental Delay</div>
               <canvas id="stopChart"></canvas>
+            </div>
+            
+            <div class="chart-wrapper">
+              <div class="chart-title">Hourly Average Incremental Delay (Top 5 Busiest Routes)</div>
+              <canvas id="hourlyDelayChart"></canvas>
             </div>
           </div>
           

@@ -37,6 +37,7 @@
   let routeChart = null;
   let busiestRoutesChart = null;
   let stopChart = null;
+  let hourlyDelayChart = null;
   let heatmapLayer = null;
   let leafletMap = null;
   let mapInitialized = false;
@@ -69,6 +70,20 @@
     const mins = Math.floor((delta % 3600) / 60);
     const secs = Math.floor(delta % 60);
     return `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  }
+
+  // Format epoch seconds as either HH:MM:SS (hours possibly >=24) or D+HH:MM:SS when crossing days
+  function formatEpochWithDayPrefix(epochSeconds, baseDay) {
+    if (epochSeconds == null || baseDay == null) return '';
+    const delta = Math.max(0, Math.floor(epochSeconds - baseDay));
+    const days = Math.floor(delta / 86400);
+    const rem = delta % 86400;
+    const hrs = Math.floor(rem / 3600);
+    const mins = Math.floor((rem % 3600) / 60);
+    const secs = Math.floor(rem % 60);
+    const timeStr = `${String(hrs).padStart(2,'0')}:${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+    if (days > 0) return `${days}+${timeStr}`;
+    return timeStr;
   }
 
   // Parse extended time string HH:MM or HH:MM:SS (hours may be >=24) to seconds offset
@@ -276,7 +291,8 @@
             stopId: stop.sid,
             stopSeq: stop.seq,
             delta: null, // No scheduled data
-            incrementalDelay: null
+            incrementalDelay: null,
+            scheduledEpoch: null
           };
           stopDeltas.push(stopDelta);
           tripStopDeltas.push(stopDelta);
@@ -304,7 +320,8 @@
           stopId: stop.sid,
           stopSeq: stop.seq,
           delta,
-          incrementalDelay: null // Will be computed after all stops are processed
+          incrementalDelay: null, // Will be computed after all stops are processed
+          scheduledEpoch: scheduledEpoch
         };
         stopDeltas.push(stopDelta);
         tripStopDeltas.push(stopDelta);
@@ -600,6 +617,113 @@
     });
     
     return topRoutes;
+  }
+
+  function aggregateHourlyDelayByRoute(stopDeltas, selectedRoutes, routeStats, timeFilterStartEpoch, timeFilterEndEpoch) {
+    const TOP_N_ROUTES = 5;
+    
+    console.log('[Viewer] Aggregating hourly delay:', {
+      totalStopDeltas: stopDeltas.length,
+      selectedRoutes: Array.from(selectedRoutes),
+      timeRange: { start: timeFilterStartEpoch, end: timeFilterEndEpoch }
+    });
+    
+    // If no time range, return empty
+    if (timeFilterStartEpoch === null || timeFilterEndEpoch === null) {
+      console.log('[Viewer] No time filter active, skipping hourly aggregation');
+      return { series: [], hourLabels: [] };
+    }
+    
+    // Round start down to nearest hour, end up to nearest hour
+    const hourStart = Math.floor(timeFilterStartEpoch / 3600) * 3600;
+    const hourEnd = Math.ceil(timeFilterEndEpoch / 3600) * 3600;
+    const hourCount = Math.max(1, (hourEnd - hourStart) / 3600);
+    
+    console.log('[Viewer] Hourly aggregation boundaries:', {
+      hourStart,
+      hourEnd,
+      hourCount,
+      startEpoch: timeFilterStartEpoch,
+      endEpoch: timeFilterEndEpoch
+    });
+    
+    // Get top N routes by trip-hours (same definition as busiest routes)
+    const topRoutes = [];
+    for (const routeId in routeStats) {
+      if (selectedRoutes.size > 0 && !selectedRoutes.has(routeId)) continue;
+      const stats = routeStats[routeId];
+      if (stats.tripCount > 0) {
+        topRoutes.push({
+          routeId,
+          tripHours: stats.tripHours
+        });
+      }
+    }
+    topRoutes.sort((a, b) => b.tripHours - a.tripHours);
+    const selectedTopRoutes = topRoutes.slice(0, TOP_N_ROUTES);
+    
+    console.log('[Viewer] Top routes for hourly chart:', {
+      totalRoutes: topRoutes.length,
+      selectedCount: selectedTopRoutes.length,
+      selected: selectedTopRoutes.map(r => ({ routeId: r.routeId, tripHours: r.tripHours.toFixed(2) }))
+    });
+    
+    // Create bin structure: routeId -> array of hourly buckets
+    const bins = {};
+    for (const route of selectedTopRoutes) {
+      bins[route.routeId] = Array(Math.ceil(hourCount)).fill(null).map(() => ({ sum: 0, count: 0 }));
+    }
+    
+    // Bin all stops by route and hour
+    for (const stop of stopDeltas) {
+      if (stop.incrementalDelay === null || stop.scheduledEpoch === null) continue;
+      if (!bins[stop.routeId]) continue; // Not in top N routes
+      
+      const hourIndex = Math.floor((stop.scheduledEpoch - hourStart) / 3600);
+      if (hourIndex < 0 || hourIndex >= bins[stop.routeId].length) continue; // Outside time range
+      
+      bins[stop.routeId][hourIndex].sum += stop.incrementalDelay;
+      bins[stop.routeId][hourIndex].count++;
+    }
+    
+    // Compute averages and prepare series data
+    const series = [];
+    const hourStartTimes = [];
+    
+    // Generate actual epoch times for each hour
+    for (let i = 0; i < Math.ceil(hourCount); i++) {
+      hourStartTimes.push(hourStart + i * 3600);
+    }
+    
+    // Build series for each selected top route
+    for (const route of selectedTopRoutes) {
+      const data = bins[route.routeId].map(bucket => {
+        if (bucket.count === 0) return null; // Gap for empty buckets
+        return bucket.sum / bucket.count;
+      });
+      
+      const routeName = routesData && routesData[route.routeId] ? routesData[route.routeId].route_long_name : null;
+      const label = routeName ? `${route.routeId} - ${routeName}` : route.routeId;
+      
+      series.push({
+        label,
+        data,
+        borderColor: null, // Will be assigned in updateHourlyDelayChart
+        backgroundColor: null,
+        tension: 0.1,
+        fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6
+      });
+    }
+    
+    console.log('[Viewer] Hourly aggregation complete:', {
+      hourCount: Math.ceil(hourCount),
+      seriesCount: series.length,
+      seriesLabels: series.map(s => s.label)
+    });
+    
+    return { series, hourStartTimes };
   }
 
   // ============================================================================
@@ -903,7 +1027,7 @@
     if (!processedData.tripSummaries || processedData.tripSummaries.length === 0) {
       timeStartInput.disabled = true;
       timeEndInput.disabled = true;
-      timeRangeInfo.innerHTML = 'No trips available';
+      if (timeRangeInfo) timeRangeInfo.innerHTML = 'No trips available';
       return;
     }
 
@@ -943,10 +1067,16 @@
       // Show extended HH:MM:SS where hours may be >24
       timeStartInput.value = convertEpochToExtendedTime(minTime, baseDay);
       timeEndInput.value = convertEpochToExtendedTime(maxTime, baseDay);
+      // Update the available range display using day-prefix formatting
+      if (timeRangeInfo) {
+        const startDisplay = formatEpochWithDayPrefix(minTime, baseDay);
+        const endDisplay = formatEpochWithDayPrefix(maxTime, baseDay);
+        timeRangeInfo.innerHTML = `Available range: ${startDisplay} to ${endDisplay}`;
+      }
     } else {
       timeStartInput.disabled = true;
       timeEndInput.disabled = true;
-      timeRangeInfo.innerHTML = 'No valid scheduled times found';
+      if (timeRangeInfo) timeRangeInfo.innerHTML = 'No valid scheduled times found';
     }
   }
   
@@ -959,7 +1089,7 @@
     if (!processedData.tripSummaries || processedData.tripSummaries.length === 0) {
       timeStartInput.disabled = true;
       timeEndInput.disabled = true;
-      timeRangeInfo.innerHTML = 'No trips available';
+      if (timeRangeInfo) timeRangeInfo.innerHTML = 'No trips available';
       return;
     }
     
@@ -994,18 +1124,20 @@
       if (!timeEndInput.value) {
         timeEndInput.value = convertScheduledToTimeInput(maxTime);
       }
-      
-      const formatMinutes = (seconds) => {
-        const hours = Math.floor(seconds / 3600) % 24;
-        const minutes = Math.floor((seconds % 3600) / 60);
-        return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-      };
-      
-      timeRangeInfo.innerHTML = `Available range: ${formatMinutes(minTime)} to ${formatMinutes(maxTime)}`;
+      // Compute base day and display with day-prefix formatting so hours >=24 or D+HH:MM:SS are shown
+      const baseDay = Math.floor(minTime / 86400) * 86400;
+      timeFilterBaseDay = baseDay;
+      if (timeRangeInfo) {
+        const startDisplay = formatEpochWithDayPrefix(minTime, baseDay);
+        const endDisplay = formatEpochWithDayPrefix(maxTime, baseDay);
+        timeRangeInfo.innerHTML = `Available range: ${startDisplay} to ${endDisplay}`;
+      }
     } else {
       timeStartInput.disabled = true;
       timeEndInput.disabled = true;
-      timeRangeInfo.innerHTML = 'No valid scheduled times found';
+      if (timeRangeInfo) {
+        timeRangeInfo.innerHTML = 'No valid scheduled times found';
+      }
     }
   }
   
@@ -1504,6 +1636,66 @@
       return false;
     }
     
+    // Initialize hourly delay chart
+    const hourlyDelayCanvas = doc.getElementById('hourlyDelayChart');
+    if (!hourlyDelayCanvas) {
+      console.error('[Viewer] Canvas element #hourlyDelayChart not found!');
+      return false;
+    }
+    
+    console.log('[Viewer] Creating hourly delay chart...');
+    try {
+      const hourlyDelayCtx = hourlyDelayCanvas.getContext('2d');
+      hourlyDelayChart = new Chart(hourlyDelayCtx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: []
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false,
+          plugins: {
+            legend: { display: true, position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: (context) => {
+                  const value = context.parsed.y;
+                  if (value === null) return 'No data';
+                  return `Avg Incremental Delay: ${value.toFixed(0)}s`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Time of Day' },
+              type: 'linear',
+              ticks: {
+                stepSize: 3600,
+                autoSkip: false,
+                callback: (value) => `${value}h`
+              },
+              min: 0,
+              max: 86400
+            },
+            y: {
+              title: { display: true, text: 'Average Incremental Delay (seconds)' },
+              ticks: {
+                stepSize: 60,
+                callback: (value) => `${value}s`
+              }
+            }
+          }
+        }
+      });
+      console.log('[Viewer] Hourly delay chart created successfully');
+    } catch (err) {
+      console.error('[Viewer] Failed to create hourly delay chart:', err);
+      return false;
+    }
+    
     console.log('[Viewer] Charts initialized');
     return true;
   }
@@ -1560,6 +1752,26 @@
     
     // Update stop chart
     updateStopChart(stopAgg);
+    
+    // Update hourly delay chart
+    // Compute a default time range if not set by Apply Filter
+    let hourlyStartEpoch = timeFilterStartEpoch;
+    let hourlyEndEpoch = timeFilterEndEpoch;
+    
+    if (hourlyStartEpoch === null || hourlyEndEpoch === null) {
+      // Use the same timeFilterBaseDay and time source as the time filter for consistency
+      let minTime = null, maxTime = null;
+      for (const trip of filteredTripSummaries) {
+        if (trip.firstRecordedTime && (minTime === null || trip.firstRecordedTime < minTime)) minTime = trip.firstRecordedTime;
+        if (trip.lastRecordedTime && (maxTime === null || trip.lastRecordedTime > maxTime)) maxTime = trip.lastRecordedTime;
+      }
+      if (minTime !== null && maxTime !== null) {
+        hourlyStartEpoch = minTime;
+        hourlyEndEpoch = maxTime;
+      }
+    }
+    
+    updateHourlyDelayChart(doc, filteredStopDeltas, hourlyStartEpoch, hourlyEndEpoch, timeFilterBaseDay);
     
     // Update heatmap (pass all filtered stop deltas, not just top 20)
     updateHeatmap(filteredStopDeltas);
@@ -1726,6 +1938,101 @@
     };
     
     busiestRoutesChart.update('none');
+  }
+
+  function updateHourlyDelayChart(doc, filteredStopDeltas, hourlyStartEpoch, hourlyEndEpoch, baseDay) {
+    console.log('[Viewer] Updating hourly delay chart');
+    
+    if (!hourlyDelayChart) {
+      console.error('[Viewer] Hourly delay chart not initialized!');
+      return;
+    }
+    
+    // Aggregate by hourly buckets
+    const hourlyData = aggregateHourlyDelayByRoute(filteredStopDeltas, selectedRouteIds, processedData.routeStats, hourlyStartEpoch, hourlyEndEpoch);
+    
+    if (hourlyData.series.length === 0 || hourlyData.hourStartTimes.length === 0) {
+      console.log('[Viewer] No hourly data available');
+      hourlyDelayChart.data.labels = [];
+      hourlyDelayChart.data.datasets = [];
+      hourlyDelayChart.update('none');
+      return;
+    }
+    
+    // Determine baseDay: use passed-in value, or compute from first hour time
+    let chartBaseDay = baseDay;
+    if (!chartBaseDay && hourlyData.hourStartTimes.length > 0) {
+      chartBaseDay = Math.floor(hourlyData.hourStartTimes[0] / 86400) * 86400;
+    }
+    
+    // Assign colors to series (red, black, yellow, blue, green)
+    const colors = [
+      'rgb(255, 0, 0)',       // red
+      'rgb(0, 0, 0)',         // black
+      'rgb(255, 255, 0)',     // yellow
+      'rgb(0, 0, 255)',       // blue
+      'rgb(0, 128, 0)'        // green
+    ];
+    
+    hourlyData.series.forEach((series, idx) => {
+      const color = colors[idx % colors.length];
+      series.borderColor = color;
+      series.backgroundColor = color;
+      series.borderWidth = 2;
+    });
+    
+    // Helper: format epoch seconds to HH:MM using consistent baseDay
+    function formatEpochToHHMM(epochSeconds) {
+      if (epochSeconds === null) return '';
+      const delta = Math.max(0, Math.floor(epochSeconds - chartBaseDay));
+      const hrs = Math.floor(delta / 3600);
+      const mins = Math.floor((delta % 3600) / 60);
+      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+    }
+    
+    // Build datasets with x,y format using actual epoch times
+    const datasets = hourlyData.series.map(series => {
+      const data = [];
+      for (let idx = 0; idx < series.data.length; idx++) {
+        const value = series.data[idx];
+        if (value !== null) {
+          data.push({
+            x: hourlyData.hourStartTimes[idx],
+            y: value
+          });
+        }
+      }
+      
+      return {
+        label: series.label,
+        data: data,
+        borderColor: series.borderColor,
+        backgroundColor: series.backgroundColor,
+        borderWidth: series.borderWidth,
+        tension: series.tension,
+        fill: series.fill,
+        pointRadius: series.pointRadius,
+        pointHoverRadius: series.pointHoverRadius,
+        spanGaps: false // Don't connect gaps
+      };
+    });
+    
+    // Generate labels for all hours
+    const labels = hourlyData.hourStartTimes.map(epochTime => formatEpochToHHMM(epochTime));
+    
+    hourlyDelayChart.data.labels = labels;
+    hourlyDelayChart.data.datasets = datasets;
+    
+    // Update x-axis scale to show all hours tightly
+    hourlyDelayChart.options.scales.x.min = hourlyData.hourStartTimes[0];
+    hourlyDelayChart.options.scales.x.max = hourlyData.hourStartTimes[hourlyData.hourStartTimes.length - 1];
+    hourlyDelayChart.options.scales.x.ticks.stepSize = 3600; // 1 hour in seconds
+    hourlyDelayChart.options.scales.x.ticks.autoSkip = false; // Show all ticks
+    hourlyDelayChart.options.scales.x.ticks.callback = function(value) {
+      return formatEpochToHHMM(value);
+    };
+    
+    hourlyDelayChart.update('none');
   }
 
   function renderStatsTab(doc, tripSummaries, stopDeltas) {
