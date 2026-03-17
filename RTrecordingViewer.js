@@ -180,27 +180,7 @@
     return available.sort().reverse(); // Newest first
   }
 
-  async function loadFromMemory() {
-    // Access recordedData from parent window (injected by openViewer)
-    const parentData = window.parentRecordedData || (typeof recordedData !== 'undefined' ? recordedData : null);
-    const parentCache = window.parentScheduledTimesCache || (typeof scheduledTimesCache !== 'undefined' ? scheduledTimesCache : null);
-    
-    if (!parentData) {
-      throw new Error('No recording data available in memory. Start recording first.');
-    }
-    
-    const tripCount = Object.keys(parentData).length;
-    if (tripCount === 0) {
-      throw new Error('Recording data is empty. No trips recorded yet.');
-    }
-    
-    return {
-      recordedData: JSON.parse(JSON.stringify(parentData)),
-      scheduledTimesCache: parentCache ? JSON.parse(JSON.stringify(parentCache)) : {},
-      source: 'memory',
-      tripCount
-    };
-  }
+  // NOTE: in-memory "Current Recording" support removed; use GitHub or file sources.
 
   async function loadFromGitHub(dateStr) {
     if (!GITHUB_RAW_BASE) {
@@ -742,14 +722,11 @@
       return;
     }
     
-    // Wait for window to fully load, then inject data references
-    // The child window will auto-initialize itself
+    // Wait for window to fully load; no in-memory injection performed
     const checkLoad = setInterval(() => {
       if (viewerWindow.document.readyState === 'complete') {
         clearInterval(checkLoad);
-        // Inject data accessors into the child window
-        viewerWindow.parentRecordedData = typeof recordedData !== 'undefined' ? recordedData : null;
-        viewerWindow.parentScheduledTimesCache = typeof scheduledTimesCache !== 'undefined' ? scheduledTimesCache : null;
+        // Intentionally not injecting parent in-memory recording data (feature removed)
       }
     }, 100);
   }
@@ -783,21 +760,19 @@
     const deselectAllBtn = doc.getElementById('deselectAllRoutes');
     const applyFilterBtn = doc.getElementById('applyFilter');
     
-    // Data source selection
+    // Data source selection (memory option removed)
     dataSourceSelect.addEventListener('change', async (e) => {
       const source = e.target.value;
-      
+
       githubDateContainer.style.display = 'none';
       fileUploadContainer.style.display = 'none';
       loadDataBtn.disabled = true;
       loadError.style.display = 'none';
-      
-      if (source === 'memory') {
-        loadDataBtn.disabled = false;
-      } else if (source === 'github') {
+
+      if (source === 'github') {
         githubDateContainer.style.display = 'block';
         githubDateSelect.innerHTML = '<option value="">-- Loading... --</option>';
-        
+
         try {
           const dates = await scanAvailableRecordings();
           if (dates.length === 0) {
@@ -838,10 +813,7 @@
       try {
         let data;
         
-        if (source === 'memory') {
-          data = await loadFromMemory();
-          updateStatusBadge(statusBadge, `Loaded from memory: ${data.tripCount} trips`, 'success');
-        } else if (source === 'github') {
+        if (source === 'github') {
           const date = githubDateSelect.value;
           data = await loadFromGitHub(date);
           updateStatusBadge(statusBadge, `Loaded from GitHub: ${date}`, 'info');
@@ -849,6 +821,8 @@
           const file = fileInput.files[0];
           data = await loadFromFile(file);
           updateStatusBadge(statusBadge, `Loaded from file: ${file.name}`, 'info');
+        } else {
+          throw new Error('No data source selected');
         }
         
         currentData = data;

@@ -23,7 +23,6 @@
           <label for="dataSource">Source:</label>
           <select id="dataSource">
             <option value="">-- Select source --</option>
-            <option value="memory">Current Recording</option>
             <option value="github">Load from GitHub</option>
             <option value="file">Upload JSON File</option>
           </select>
@@ -144,10 +143,10 @@
   <script>
   (async function () {
     try {
-      const res = await fetch('/config.json');
+      const res = await fetch('config.json');
       window.APP_CONFIG = (res && res.ok) ? await res.json() : {};
     } catch (err) {
-      console.warn('[Viewer] could not load /config.json', err);
+      console.warn('[Viewer] could not load config.json', err);
       window.APP_CONFIG = window.APP_CONFIG || {};
     }
     const s = document.createElement('script');
