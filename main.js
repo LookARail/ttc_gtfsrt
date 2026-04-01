@@ -68,6 +68,29 @@
   // DOM elements and UI helpers (must be declared before loadGTFSData)
   // ---------------------------------------------------------------------------
   
+  // Check if arrival time is valid (numeric, not "skip" or other non-numeric values)
+  function isValidArrivalTime(arr) {
+    // TODO: Future enhancement - track trips/stops with skipped arrivals for statistics
+    return typeof arr === 'number' && isFinite(arr) && arr !== null;
+  }
+
+  // Normalize delay: fix day-boundary issues where actual arrival is 24hrs relative to scheduled
+  // If delay is between -22 to -26 hours, add 24 hours (likely day boundary data issue)
+  function normalizeDelay(delaySeconds) {
+    if (delaySeconds === null || delaySeconds === undefined) return delaySeconds;
+    
+    const HOUR_22_SECONDS = -22 * 3600; // -79,200
+    const HOUR_26_SECONDS = -26 * 3600; // -93,600
+    const DAY_SECONDS = 86400;
+    
+    // If delay is between -22 to -26 hours, assume day boundary crossing
+    if (delaySeconds <= HOUR_22_SECONDS && delaySeconds >= HOUR_26_SECONDS) {
+      return delaySeconds + DAY_SECONDS;
+    }
+    
+    return delaySeconds;
+  }
+
   // Status UI helpers
   const statusEl = document.getElementById('status');
   const statusTextEl = document.getElementById('statusText');
@@ -1032,25 +1055,45 @@
       
       // Extract into compact cache format
       let tripsExtracted = 0;
-      for (const tripId in stopTimesData) {
-        if (!scheduledTimesCache[tripId]) {
-          scheduledTimesCache[tripId] = {};
-        }
-        for (const stop of stopTimesData[tripId]) {
-          // Only store both if different, otherwise store just one
-          const arr = stop.arr || null;
-          const dep = stop.dep || null;
-          scheduledTimesCache[tripId][stop.seq] = {
-            sch_arr: arr || dep,
-            sch_dep: (dep && dep !== arr) ? dep : null
-          };
+      
+      if (!stopTimesData || typeof stopTimesData !== 'object') {
+        console.warn(`[RT Recorder] WARNING: stopTimesData invalid for route ${routeId}:`, { type: typeof stopTimesData, stopTimesData });
+      } else {
+        for (const tripId in stopTimesData) {
+          if (!scheduledTimesCache[tripId]) {
+            scheduledTimesCache[tripId] = {};
+          }
+          for (const stop of stopTimesData[tripId]) {
+          // Only store numeric values; skip non-numeric (including arr="skip")
+          const arr = isValidArrivalTime(stop.arr) ? stop.arr : null;
+          const dep = isValidArrivalTime(stop.dep) ? stop.dep : null;
+          if (arr || dep) {
+            scheduledTimesCache[tripId][stop.seq] = {
+              sch_arr: arr || dep,
+              sch_dep: (dep && dep !== arr) ? dep : null
+            };
+          }
         }
         tripsExtracted++;
       }
+      }  // Close else block
       
-      console.log(`[RT Recorder] ✓ Route ${routeId} loaded: ${tripsExtracted} trips, ${Object.keys(stopTimesData[Object.keys(stopTimesData)[0]] || []).length} stops avg`);
+      // Safe console.log that won't crash if stopTimesData is undefined
+      let stopsCountAvg = 0;
+      if (stopTimesData && typeof stopTimesData === 'object') {
+        const keys = Object.keys(stopTimesData);
+        if (keys.length > 0 && stopTimesData[keys[0]]) {
+          stopsCountAvg = Object.keys(stopTimesData[keys[0]]).length;
+        }
+      }
+      console.log(`[RT Recorder] ✓ Route ${routeId} loaded: ${tripsExtracted} trips, ${stopsCountAvg} stops avg`);
       
       // Pre-populate all scheduled stops for trips in recordedData that match this route
+      if (!recordedData || typeof recordedData !== 'object') {
+        console.warn(`[RT Recorder] WARNING: recordedData is invalid for route ${routeId}:`, { recordedData });
+        return;  // Exit function early if recordedData is missing
+      }
+      
       for (const tripId in recordedData) {
         const trip = recordedData[tripId];
         if (trip.rid === routeId && scheduledTimesCache[tripId]) {
@@ -1343,7 +1386,7 @@
       let timeDisplay = '';
       
       // Check if we have actual RT arrival data
-      if (stop.arr !== null) {
+      if (isValidArrivalTime(stop.arr)) {
         const actualTime = new Date(stop.arr * 1000).toLocaleTimeString('en-US', {
           timeZone: TIME_ZONE,
           hour: '2-digit',
@@ -1364,7 +1407,8 @@
               minute: '2-digit',
               second: '2-digit'
             });
-            const delay = stop.arr - scheduledEpoch;
+            let delay = stop.arr - scheduledEpoch;
+            delay = normalizeDelay(delay);
             const delayMin = Math.round(delay / 60);
             const delayText = delay > 0 ? `+${delayMin}m` : `${delayMin}m`;
             timeDisplay += ` | Scheduled: ${schTime} (${delayText})`;
@@ -1496,4 +1540,14 @@
   
   // Initialize UI
   updateRecorderUI();
+  
+  // ============================================================================
+  // EXPOSE VARIABLES FOR DEBUG (Debug.js access)
+  // ============================================================================
+  window._TTC_DEBUG = {
+    gtfsData,
+    activeFilter,
+    recordedData,
+    isValidArrivalTime
+  };
 })();

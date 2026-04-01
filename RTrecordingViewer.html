@@ -32,10 +32,7 @@
           <label for="githubDate">Select Date:</label>
           <select id="githubDate">
             <option value="">-- Loading... --</option>
-          </select>
-          <div class="date-annotation">
-            Note: "2026-03-09.json" contains data from March 8 (completed at 3 AM Toronto time).
-          </div>
+          </select>          
         </div>
         
         <div id="fileUpload" style="display:none;" class="form-group">
@@ -92,12 +89,12 @@
         <div class="charts-container">
           <div id="otpTab" class="tab-content active">
             <div class="chart-wrapper">
-              <div class="chart-title">Top 10 Routes by Average Max Delay</div>
+              <div class="chart-title">Top 10 Routes by Average Highest Delay Along Each Trip</div>
               <canvas id="routeChart"></canvas>
             </div>
             
             <div class="chart-wrapper">
-              <div class="chart-title">Top 10 Busiest Routes by Average Delay (by Trip-Hours)</div>
+              <div class="chart-title">Top 10 Busiest Routes (by Trip-Hours) by Average Highest Delay Along Each Trip </div>
               <canvas id="busiestRoutesChart"></canvas>
             </div>
             

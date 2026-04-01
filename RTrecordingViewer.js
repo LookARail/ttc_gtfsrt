@@ -86,6 +86,61 @@
     return timeStr;
   }
 
+  // Check if arrival time is valid (numeric, not "skip" or other non-numeric values)
+  function isValidArrivalTime(arr) {
+    // TODO: Future enhancement - track skipped stops for statistics
+    return typeof arr === 'number' && isFinite(arr) && arr !== null;
+  }
+
+  // Normalize delay: fix day-boundary issues where actual arrival is 24hrs relative to scheduled
+  // If delay is between -22 to -26 hours, add 24 hours (likely day boundary data issue)
+  function normalizeDelay(delaySeconds) {
+    if (delaySeconds === null || delaySeconds === undefined) return delaySeconds;
+    
+    const HOUR_22_SECONDS = -22 * 3600; // -79,200
+    const HOUR_26_SECONDS = -26 * 3600; // -93,600
+    const DAY_SECONDS = 86400;
+    
+    // If delay is between -22 to -26 hours, assume day boundary crossing
+    if (delaySeconds <= HOUR_22_SECONDS && delaySeconds >= HOUR_26_SECONDS) {
+      return delaySeconds + DAY_SECONDS;
+    }
+    
+    return delaySeconds;
+  }
+
+  // Normalize data structure: handle both old (wrapped) and new (direct) formats
+  function normalizeRecordedData(data) {
+    // If data already has recordedData property, it's old format
+    if (data.recordedData) {
+      return {
+        recordedData: data.recordedData,
+        scheduledTimesCache: data.scheduledTimesCache || {},
+        source: data.source,
+        date: data.date
+      };
+    }
+    // If data is an object with trip keys (starts with numbers/strings), assume new format (direct trips)
+    // Check if the object looks like trip data: has properties that look like trip IDs with 'rid' and 'stops'
+    const keys = Object.keys(data);
+    if (keys.length > 0 && keys.some(k => data[k] && data[k].rid && data[k].stops)) {
+      console.log('[Viewer] Detected new JSON format (direct trips, no wrapper)');
+      return {
+        recordedData: data,
+        scheduledTimesCache: {},
+        source: data.source || 'unknown',
+        date: data.date || 'unknown'
+      };
+    }
+    // Otherwise, assume it's old format with recordedData
+    return {
+      recordedData: data.recordedData || {},
+      scheduledTimesCache: data.scheduledTimesCache || {},
+      source: data.source,
+      date: data.date
+    };
+  }
+
   // Parse extended time string HH:MM or HH:MM:SS (hours may be >=24) to seconds offset
   function parseExtendedTimeToOffset(s) {
     if (!s || typeof s !== 'string') return null;
@@ -191,8 +246,9 @@
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
+    const normalized = normalizeRecordedData(data);
     return {
-      ...data,
+      ...normalized,
       source: 'github',
       date: dateStr
     };
@@ -204,12 +260,14 @@
       reader.onload = (e) => {
         try {
           const data = JSON.parse(e.target.result);
-          if (!data.recordedData) {
-            reject(new Error('Invalid file format: missing recordedData'));
+          // Handle both old format (wrapped in recordedData) and new format (direct trips)
+          const normalized = normalizeRecordedData(data);
+          if (!normalized.recordedData || Object.keys(normalized.recordedData).length === 0) {
+            reject(new Error('Invalid file format: no recordedData or trip records found'));
             return;
           }
           resolve({
-            ...data,
+            ...normalized,
             source: 'file',
             filename: file.name
           });
@@ -227,7 +285,22 @@
   // ============================================================================
 
   function processData(data) {
-    const { recordedData, scheduledTimesCache = {} } = data;
+    console.log('[Viewer] processData called with:', { data, dataKeys: data ? Object.keys(data) : 'data is null/undefined' });
+    
+    if (!data || typeof data !== 'object') {
+      console.error('[Viewer] ERROR: processData received invalid data:', { type: typeof data, value: data });
+      throw new Error('Invalid data object passed to processData');
+    }
+    
+    // Normalize the data structure to handle both old and new formats
+    const normalized = normalizeRecordedData(data);
+    const recordedData = normalized.recordedData;
+    const scheduledTimesCache = normalized.scheduledTimesCache || {};
+    
+    if (!recordedData || typeof recordedData !== 'object' || Object.keys(recordedData).length === 0) {
+      console.error('[Viewer] ERROR: recordedData is missing or empty:', { recordedData, dataKeys: Object.keys(data).slice(0, 10) });
+      throw new Error('Missing recordedData in data object');
+    }
     
     console.log('[Viewer] Processing data:', {
       tripCount: Object.keys(recordedData).length,
@@ -253,13 +326,17 @@
       for (const stopSeq in trip.stops) {
         const stop = trip.stops[stopSeq];
         
-        // Skip if no actual arrival time
-        if (!stop.arr) continue;
+        // Skip if no valid actual arrival time (including arr="skip")
+        if (!isValidArrivalTime(stop.arr)) {
+          // TODO: Future - track trips with skipped stops for statistics
+          continue;
+        }
         
         // Get scheduled arrival time (already in epoch seconds)
         const scheduledEpoch = stop.sch_arr || stop.sch_dep;
         // Also capture recorded (actual) times for this trip
-        const actualEpoch = stop.arr || stop.dep || null;
+        // At this point, stop.arr is guaranteed to be valid by isValidArrivalTime() check
+        const actualEpoch = stop.arr;
         if (actualEpoch) {
           if (firstRecordedTime === null || actualEpoch < firstRecordedTime) firstRecordedTime = actualEpoch;
           if (lastRecordedTime === null || actualEpoch > lastRecordedTime) lastRecordedTime = actualEpoch;
@@ -286,13 +363,15 @@
             routeId: trip.rid,
             stopSeq,
             actualArrival: stop.arr,
+            actualArrivalValid: isValidArrivalTime(stop.arr),
             scheduledArrival: scheduledEpoch
           });
           debugSampleShown = true;
         }
         
         // Calculate delta (positive = late, negative = early)
-        const delta = stop.arr - scheduledEpoch;
+        let delta = stop.arr - scheduledEpoch;
+        delta = normalizeDelay(delta);
         
         const stopDelta = {
           tripId,
@@ -345,6 +424,11 @@
       let lastScheduledTime = null;
       
       // Get stops sorted by sequence
+      if (!trip.stops || typeof trip.stops !== 'object') {
+        console.warn(`[Viewer] WARNING: trip.stops is invalid for tripId ${tripId}:`, { stops: trip.stops });
+        continue;  // Skip this trip if stops data is missing
+      }
+      
       const sortedStopSeqs = Object.keys(trip.stops).sort((a, b) => {
         const seqA = parseInt(trip.stops[a].seq) || 0;
         const seqB = parseInt(trip.stops[b].seq) || 0;
@@ -481,6 +565,7 @@
     
     // Calculate averages
     const aggregations = [];
+    console.log('[Viewer] About to iterate routeMap:', { routeMapType: typeof routeMap, routeMapKeys: routeMap ? Object.keys(routeMap) : 'N/A' });
     for (const routeId in routeMap) {
       const route = routeMap[routeId];
       const avgDelay = route.delays.reduce((sum, d) => sum + d, 0) / route.delays.length;
@@ -530,6 +615,7 @@
     
     // Calculate averages
     const aggregations = [];
+    console.log('[Viewer] About to iterate stopMap:', { stopMapType: typeof stopMap, stopMapKeys: stopMap ? Object.keys(stopMap) : 'N/A' });
     for (const stopId in stopMap) {
       const stop = stopMap[stopId];
       const avgIncrementalDelay = stop.incrementalDelays.reduce((sum, d) => sum + d, 0) / stop.incrementalDelays.length;
@@ -555,34 +641,47 @@
   }
 
   function aggregateByBusiestRoutes(tripSummaries, selectedRoutes, routeStats) {
-    console.log('[Viewer] Aggregating busiest routes:', {
+    console.log('[Viewer] Aggregating busiest routes by average max delay:', {
       totalTrips: tripSummaries.length,
-      selectedRoutes: Array.from(selectedRoutes),
-      preComputedRoutes: Object.keys(routeStats).length
+      selectedRoutes: Array.from(selectedRoutes)
     });
     
-    // Use pre-computed routeStats instead of filtering stopDeltas (O(1) instead of O(trips * stops))
-    const aggregations = [];
-    
-    for (const routeId in routeStats) {
-      if (selectedRoutes.size > 0 && !selectedRoutes.has(routeId)) continue;
+    // Build route map with trip max delays (same method as aggregateByRoute)
+    const routeMap = {};
+    for (const trip of tripSummaries) {
+      if (selectedRoutes.size > 0 && !selectedRoutes.has(trip.routeId)) continue;
+      if (trip.maxDelay === null) continue;
       
-      const stats = routeStats[routeId];
-      const avgDelay = stats.delayCount > 0 ? stats.delaySum / stats.delayCount : 0;
-      
-      // Only include if route has valid trip data
-      if (stats.tripCount > 0) {
-        aggregations.push({
-          routeId,
-          tripHours: stats.tripHours,
-          tripCount: stats.tripCount,
-          avgDelay,
-          delayCount: stats.delayCount
-        });
+      if (!routeMap[trip.routeId]) {
+        routeMap[trip.routeId] = {
+          routeId: trip.routeId,
+          maxDelays: [],
+          tripCount: 0,
+          tripHours: routeStats[trip.routeId]?.tripHours || 0
+        };
       }
+      
+      routeMap[trip.routeId].maxDelays.push(trip.maxDelay);
+      routeMap[trip.routeId].tripCount++;
     }
     
-    // Sort by tripHours descending, take top 10
+    // Calculate average of max delays per route
+    const aggregations = [];
+    for (const routeId in routeMap) {
+      const route = routeMap[routeId];
+      const avgDelay = route.maxDelays.length > 0 
+        ? route.maxDelays.reduce((sum, d) => sum + d, 0) / route.maxDelays.length 
+        : 0;
+      
+      aggregations.push({
+        routeId,
+        tripHours: route.tripHours,
+        tripCount: route.tripCount,
+        avgDelay
+      });
+    }
+    
+    // Sort by tripHours descending (busiest = most trip-hours), take top 10
     aggregations.sort((a, b) => b.tripHours - a.tripHours);
     const topRoutes = aggregations.slice(0, 10);
     
@@ -592,7 +691,7 @@
       top10: topRoutes.map(r => ({ 
         route: r.routeId, 
         tripHours: r.tripHours.toFixed(2), 
-        avgDelay: r.avgDelay.toFixed(0) 
+        avgMaxDelay: r.avgDelay.toFixed(0) 
       }))
     });
     
@@ -629,6 +728,7 @@
     
     // Get top N routes by trip-hours (same definition as busiest routes)
     const topRoutes = [];
+    console.log('[Viewer] About to iterate routeStats for hourly:', { routeStatsType: typeof routeStats, routeStatsKeys: routeStats ? Object.keys(routeStats).length : 'N/A' });
     for (const routeId in routeStats) {
       if (selectedRoutes.size > 0 && !selectedRoutes.has(routeId)) continue;
       const stats = routeStats[routeId];
@@ -946,14 +1046,15 @@
         for (const stopSeq in tripData.stops) {
           const stop = tripData.stops[stopSeq];
           const scheduledEpoch = stop.sch_arr || stop.sch_dep;
-          const delta = (stop.arr && scheduledEpoch) ? stop.arr - scheduledEpoch : null;
+          let delta = (isValidArrivalTime(stop.arr) && scheduledEpoch) ? stop.arr - scheduledEpoch : null;
+          delta = normalizeDelay(delta);
           
           stopDetails.push({
             seq: stop.seq,
             stopId: stop.sid,
             scheduledEpoch: scheduledEpoch,
             actualEpoch: stop.arr,
-            actualTime: stop.arr ? new Date(stop.arr * 1000).toISOString() : 'MISSING',
+            actualTime: isValidArrivalTime(stop.arr) ? new Date(stop.arr * 1000).toISOString() : 'MISSING',
             delta: delta !== null ? `${delta}s (${formatDuration(delta)})` : 'NULL'
           });
         }
@@ -2130,7 +2231,7 @@
           seq: stop.seq,
           stopId: stop.sid,
           stopName: stopName,
-          arr: stop.arr || null,
+          arr: isValidArrivalTime(stop.arr) ? stop.arr : null,
           sch_arr: stop.sch_arr || null,
           delay: delay !== null ? `${delay}s (${formatDuration(delay)})` : 'null',
           incrementalDelay: incrementalDelay !== null ? `${incrementalDelay}s (${formatDuration(incrementalDelay)})` : 'null'
@@ -2144,12 +2245,249 @@
   }
 
   // ============================================================================
+  // DEBUG UTILITIES
+  // ============================================================================
+
+  /**
+   * Debug function to analyze a specific trip by ID
+   * Shows detailed stop-by-stop data and delay metrics
+   * 
+   * Call from browser console in RTRecordingViewer.html:
+   *   window.RTRecordingViewer.debugTripById('your-trip-id-here')
+   */
+  function debugTripById(tripId) {
+    console.group(`%c[RTRecordingViewer DEBUG] Trip Details: ${tripId}`, 'color: #d32f2f; font-weight: bold');
+    
+    if (!currentData || !currentData.recordedData) {
+      console.error('ERROR: No data loaded. Use "Load Data" first.');
+      console.groupEnd();
+      return;
+    }
+    
+    const recordedData = currentData.recordedData;
+    const routes = (window.gtfsData && window.gtfsData.routes) || {};
+    
+    // Look up the trip
+    const trip = recordedData[tripId];
+    if (!trip) {
+      console.error(`ERROR: Trip ID "${tripId}" not found in recorded data.`);
+      console.groupEnd();
+      return;
+    }
+    
+    const routeId = String(trip.rid);
+    const route = routes[routeId];
+    const routeName = route 
+      ? `${route.route_short_name || ''} - ${route.route_long_name || ''}`
+      : `Route ${routeId}`;
+    
+    console.log(`Route: ${routeName} (${routeId})`);
+    console.log(`Vehicle: ${trip.vid || 'N/A'}`);
+    
+    // Build stop details
+    const stopSeqKeys = Object.keys(trip.stops);
+    const stopDetails = [];
+    const stopIds = (stopsData || {});
+    
+    for (let s = 0; s < stopSeqKeys.length; s++) {
+      const stopSeq = stopSeqKeys[s];
+      const stop = trip.stops[stopSeq];
+      
+      if (stop && typeof stop === 'object') {
+        let delaySeconds = (isValidArrivalTime(stop.arr) && stop.sch_arr)
+          ? (stop.arr - stop.sch_arr)
+          : null;
+        delaySeconds = normalizeDelay(delaySeconds);
+        
+        const stopName = stopIds[stop.sid] ? stopIds[stop.sid].name : `Stop ${stop.sid}`;
+        
+        stopDetails.push({
+          seq: Number(stopSeq),
+          stopId: stop.sid,
+          stopName: stopName,
+          arr_recorded: isValidArrivalTime(stop.arr) ? stop.arr : 'MISSING',
+          sch_arr: stop.sch_arr || 'N/A',
+          delaySeconds: delaySeconds,
+          delayFormatted: delaySeconds !== null ? formatDuration(delaySeconds) : 'N/A'
+        });
+      }
+    }
+    
+    if (stopDetails.length > 0) {
+      console.log(`\nStops (${stopDetails.length} total):`);
+      console.table(stopDetails);
+      
+      // Calculate trip-level metrics
+      const validDelays = stopDetails
+        .filter(s => s.delaySeconds !== null)
+        .map(s => s.delaySeconds);
+      
+      if (validDelays.length > 0) {
+        const maxDelay = Math.max(...validDelays);
+        const minDelay = Math.min(...validDelays);
+        const avgDelay = validDelays.reduce((a, b) => a + b, 0) / validDelays.length;
+        
+        console.log('\n📈 Trip Metrics:');
+        console.log(`  Max Delay: ${formatDuration(maxDelay)} (${maxDelay}s)`);
+        console.log(`  Min Delay: ${formatDuration(minDelay)} (${minDelay}s)`);
+        console.log(`  Avg Delay: ${formatDuration(avgDelay)} (${avgDelay.toFixed(1)}s)`);
+        console.log(`  Valid stops: ${validDelays.length}/${stopDetails.length}`);
+      } else {
+        console.log('⚠️  No valid delay data for this trip');
+      }
+    } else {
+      console.log('⚠️  No stops recorded for this trip');
+    }
+    
+    console.groupEnd();
+  }
+
+  /**
+   * Debug function to analyze trip delays from currently loaded data
+   * Call from browser console in RTrecordingViewer.html:
+   *   window.RTRecordingViewer.debugTripDelays()
+   */
+  function debugTripDelays() {
+    console.group('%c[RTRecordingViewer DEBUG] Trip Delay Analysis', 'color: #d32f2f; font-weight: bold');
+    
+    if (!currentData || !currentData.recordedData) {
+      console.error('ERROR: No data loaded. Use "Load Data" first.');
+      console.groupEnd();
+      return;
+    }
+    
+    const recordedData = currentData.recordedData;
+    const routes = (window.gtfsData && window.gtfsData.routes) || {};
+    const allTripIds = Object.keys(recordedData);
+    
+    console.log(`📊 Total recorded trips: ${allTripIds.length}`);
+    
+    // Read current filter state from DOM (not from selectedRouteIds which might be stale)
+    // Check if we're in a popup (viewerWindow) or the main page (document)
+    const targetDoc = viewerWindow ? viewerWindow.document : document;
+    const checkedCheckboxes = targetDoc.querySelectorAll('.route-filter input[type="checkbox"]:checked');
+    const currentSelectedRoutes = new Set();
+    
+    checkedCheckboxes.forEach(cb => {
+      currentSelectedRoutes.add(String(cb.value));
+    });
+    
+    console.log(`🔍 Selected Routes (from UI): ${currentSelectedRoutes.size > 0 ? Array.from(currentSelectedRoutes).join(', ') : 'None (all routes)'}`);
+    
+    // Filter trips by selected routes
+    const filteredTripIds = [];
+    for (let i = 0; i < allTripIds.length; i++) {
+      const tripId = allTripIds[i];
+      const trip = recordedData[tripId];
+      
+      if (trip && typeof trip === 'object' && trip.rid) {
+        const routeId = String(trip.rid);
+        // Include trip if no filter is active OR if its route is in the selected set
+        if (currentSelectedRoutes.size === 0 || currentSelectedRoutes.has(routeId)) {
+          filteredTripIds.push(tripId);
+        }
+      }
+    }
+    
+    console.log(`✓ Found ${filteredTripIds.length} trips matching filter\n`);
+    
+    if (filteredTripIds.length === 0) {
+      console.warn('⚠️  No trips found. Try selecting different routes or click "Apply Filter".');
+      console.groupEnd();
+      return;
+    }
+    
+    // Analyze ALL filtered trips (up to 1000)
+    const tripsToAnalyze = filteredTripIds.slice(0, 1000);
+    console.log(`✓ Analyzing all ${tripsToAnalyze.length} trips (capped at 1000)\n`);
+    
+    const tripDelayData = [];
+    
+    // Analyze each trip
+    for (let i = 0; i < tripsToAnalyze.length; i++) {
+      const tripId = tripsToAnalyze[i];
+      const trip = recordedData[tripId];
+      
+      if (!trip || !trip.stops) continue;
+      
+      const routeId = String(trip.rid);
+      const route = routes[routeId];
+      const routeName = route 
+        ? `${route.route_short_name || ''} - ${route.route_long_name || ''}`
+        : `Route ${routeId}`;
+      
+      // Build stop details (for calculating delays, not logging)
+      const stopSeqKeys = Object.keys(trip.stops);
+      const stopDetails = [];
+      
+      for (let s = 0; s < stopSeqKeys.length; s++) {
+        const stopSeq = stopSeqKeys[s];
+        const stop = trip.stops[stopSeq];
+        
+        if (stop && typeof stop === 'object') {
+          let delaySeconds = (isValidArrivalTime(stop.arr) && stop.sch_arr)
+            ? (stop.arr - stop.sch_arr)
+            : null;
+          delaySeconds = normalizeDelay(delaySeconds);
+          
+          stopDetails.push({
+            seq: Number(stopSeq),
+            delaySeconds: delaySeconds
+          });
+        }
+      }
+      
+      // Calculate trip-level metrics (silently, no logging per trip - too verbose for 1000 trips)
+      const validDelays = stopDetails
+        .filter(s => s.delaySeconds !== null)
+        .map(s => s.delaySeconds);
+      
+      if (validDelays.length > 0) {
+        const maxDelay = Math.max(...validDelays);
+        const minDelay = Math.min(...validDelays);
+        const avgDelay = validDelays.reduce((a, b) => a + b, 0) / validDelays.length;
+        
+        tripDelayData.push({
+          tripId,
+          routeName,
+          vehicleId: trip.vid,
+          stopCount: stopDetails.length,
+          maxDelay,
+          minDelay,
+          avgDelay
+        });
+      }
+    }
+    
+    // Summary
+    if (tripDelayData.length > 0) {
+      console.log(`\n📊 SUMMARY - All ${tripDelayData.length} Analyzed Trips:`);
+      console.table(tripDelayData);
+      
+      const allMaxDelays = tripDelayData.map(t => t.maxDelay);
+      const overallMax = Math.max(...allMaxDelays);
+      const overallMin = Math.min(...allMaxDelays);
+      const overallAvg = allMaxDelays.reduce((a, b) => a + b, 0) / allMaxDelays.length;
+      
+      console.log('\n🎯 Overall Max Delays (Average of Trip Max Delays):');
+      console.log(`  Highest: ${formatDuration(overallMax)}`);
+      console.log(`  Lowest: ${formatDuration(overallMin)}`);
+      console.log(`  Average: ${formatDuration(overallAvg)}`);
+    }
+    
+    console.log('\n✅ Analysis complete');
+    console.groupEnd();
+  }
+
+  // ============================================================================
   // EXPORTS
   // ============================================================================
 
   window.RTRecordingViewer = {
     open: openViewer,
-    sampleTrips: sampleTripsForRoute
+    sampleTrips: sampleTripsForRoute,
+    debugTripById: debugTripById,
+    debugTripDelays: debugTripDelays
   };
 
   // ============================================================================

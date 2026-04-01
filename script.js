@@ -9,6 +9,12 @@ function log(msg) {
 	outputEl.textContent += msg + '\n';
 }
 
+// Check if arrival time is valid (numeric, not "skip" or other non-numeric values)
+function isValidArrivalTime(arr) {
+	// TODO: Future enhancement - track stops with skipped arrivals for statistics
+	return typeof arr === 'number' && isFinite(arr) && arr !== null;
+}
+
 function safeParseCSV(text) {
 	return Papa.parse(text, { header: true, skipEmptyLines: true, dynamicTyping: false }).data;
 }
@@ -394,8 +400,9 @@ async function completeRecordedFile(file) {
 				const seq = parseInt(seqKey);
 				const schedStop = stopTimesForTrip.find(s => Number(s.seq) === seq);
 				if (schedStop) {
-					const arr = schedStop.arr || null;
-					const dep = schedStop.dep || null;
+					// Only store numeric values; skip non-numeric (including arr="skip")
+					const arr = isValidArrivalTime(schedStop.arr) ? schedStop.arr : null;
+					const dep = isValidArrivalTime(schedStop.dep) ? schedStop.dep : null;
 					if (arr || dep) {
 						// Only set sch_arr/sch_dep if not already present
 						if (!stop.sch_arr && (arr || dep)) {
