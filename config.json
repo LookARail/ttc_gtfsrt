@@ -1,6 +1,7 @@
 {
   "agencyId": "ttc",
   "feedUrl": "https://ttc-gtfsrt.onrender.com/vehicles",
+  "tripUpdateUrl": "https://ttc-gtfsrt.onrender.com/trip-updates",
   "githubRepo": "LookArail/ttc_gtfsrt",
   "githubBranch": "main",
   "timeZone": "America/Toronto",
