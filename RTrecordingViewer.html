@@ -111,11 +111,20 @@
           
           <div id="mapTab" class="tab-content">
             <div class="map-controls">
-              <label for="heatmapMetric">Metric:</label>
-              <select id="heatmapMetric">
-                <option value="incrementalDelay">Incremental Delay at Stops</option>
-              </select>
+              <div class="control-group">
+                <label for="topNRoutes">Top N Routes:</label>
+                <input type="number" id="topNRoutes" min="1" max="200" value="150" />
+                <button id="refreshHeatmapBtn" style="margin-left: 8px; padding: 6px 12px; cursor: pointer;">🔄 Refresh</button>
+              </div>
+              <div class="control-group">
+                <label for="heatmapMetric">Metric:</label>
+                <select id="heatmapMetric">
+                  <option value="incrementalDelay">Incremental Delay at Stops</option>
+                  <option value="travelTime">Travel Time (All Routes)</option>
+                </select>
+              </div>
             </div>
+            <div id="heatmapLegend" class="heatmap-legend"></div>
             <div id="heatmapContainer" class="map-container"></div>
           </div>
           
@@ -135,6 +144,9 @@
   
   <!-- Load Leaflet.heat plugin -->
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+  <!-- RT Recording Utility functions -->
+  <script src="RTrecordingUtility.js" defer></script>
   
   <!-- Main viewer script -->
   <script>

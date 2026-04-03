@@ -10,6 +10,8 @@
   const GITHUB_RAW_BASE = GITHUB_REPO ? `https://raw.githubusercontent.com/${GITHUB_REPO}/${GITHUB_BRANCH}` : "";
 
   const TIME_ZONE = (window.APP_CONFIG && window.APP_CONFIG.timeZone) || 'UTC';
+  const MAP_CONFIG = (window.APP_CONFIG && window.APP_CONFIG.map) || { center: [43.65, -79.38], zoom: 11 };
+  let TOP_N_ROUTES = 150; // Customizable via UI
   let viewerWindow = null;
   let currentData = null;
   let stopsData = null;
@@ -27,7 +29,9 @@
     routeStats: {},
     stopStats: {},
     routeAggregations: [],
-    stopAggregations: []
+    stopAggregations: [],
+    tripsByRoute: {},       // routeId -> [tripSummaries]
+    tripsByShape: {}        // shapeId -> [tripSummaries]
   };
 
   // ============================================================================
@@ -42,6 +46,7 @@
   let leafletMap = null;
   let mapInitialized = false;
   let cachedHeatmapPoints = null;
+  let segmentsCache = {}; // Global cache for segments: key = "fromStopId_toStopId" -> Segment object
 
   // ============================================================================
   // TIMEZONE & FORMATTING UTILITIES
@@ -380,7 +385,8 @@
           stopSeq: stop.seq,
           delta,
           incrementalDelay: null, // Will be computed after all stops are processed
-          scheduledEpoch: scheduledEpoch
+          scheduledEpoch: scheduledEpoch,
+          actualEpoch: stop.arr  // Add actual arrival time for speed calculations
         };
         stopDeltas.push(stopDelta);
         tripStopDeltas.push(stopDelta);
@@ -534,6 +540,43 @@
     });
     
     return { tripSummaries, stopDeltas, stopDeltasByTrip, routeStats, stopStats };
+  }
+
+  /**
+   * Build trip index maps for efficient lookups during visualization
+   * Builds tripsByRoute and tripsByShape indices from tripSummaries
+   */
+  function buildTripIndexMaps(tripSummaries, gtfsData) {
+    const tripsByRoute = {};
+    const tripsByShape = {};
+
+    console.log('[Viewer] Building trip index maps for visualization...');
+
+    for (const trip of tripSummaries) {
+      // Index by route
+      if (!tripsByRoute[trip.routeId]) {
+        tripsByRoute[trip.routeId] = [];
+      }
+      tripsByRoute[trip.routeId].push(trip);
+
+      // Index by shape (from GTFS data)
+      const gtfsTrip = gtfsData.trips && gtfsData.trips[trip.tripId];
+      if (gtfsTrip && gtfsTrip.shape_id) {
+        if (!tripsByShape[gtfsTrip.shape_id]) {
+          tripsByShape[gtfsTrip.shape_id] = [];
+        }
+        tripsByShape[gtfsTrip.shape_id].push(trip);
+      }
+    }
+
+    console.log('[Viewer] Trip index maps built:', {
+      routeCount: Object.keys(tripsByRoute).length,
+      shapeCount: Object.keys(tripsByShape).length,
+      totalRouteTrips: Object.values(tripsByRoute).reduce((sum, trips) => sum + trips.length, 0),
+      totalShapeTrips: Object.values(tripsByShape).reduce((sum, trips) => sum + trips.length, 0)
+    });
+
+    return { tripsByRoute, tripsByShape };
   }
 
   function aggregateByRoute(tripSummaries, selectedRoutes) {
@@ -699,8 +742,6 @@
   }
 
   function aggregateHourlyDelayByRoute(stopDeltas, selectedRoutes, routeStats, timeFilterStartEpoch, timeFilterEndEpoch) {
-    const TOP_N_ROUTES = 5;
-    
     console.log('[Viewer] Aggregating hourly delay:', {
       totalStopDeltas: stopDeltas.length,
       selectedRoutes: Array.from(selectedRoutes),
@@ -859,6 +900,13 @@
     const selectAllBtn = doc.getElementById('selectAllRoutes');
     const deselectAllBtn = doc.getElementById('deselectAllRoutes');
     const applyFilterBtn = doc.getElementById('applyFilter');
+    const topNRoutesInput = doc.getElementById('topNRoutes');
+    
+    // Initialize TOP_N_ROUTES from input FIRST, before any data loading or visualization
+    if (topNRoutesInput) {
+      TOP_N_ROUTES = parseInt(topNRoutesInput.value) || 150;
+      console.log('[Viewer] TOP_N_ROUTES initialized to:', TOP_N_ROUTES);
+    }
     
     // Data source selection (memory option removed)
     dataSourceSelect.addEventListener('change', async (e) => {
@@ -936,17 +984,65 @@
         processedData.routeStats = processed.routeStats;
         processedData.stopStats = processed.stopStats;
         
+        // Load GTFS data required for building trip index maps
+        let gtfsDataForIndexing = {
+          trips: {},
+          shapes: {},
+          stops: {},
+          routes: {},
+          shapeRouteMap: {},
+          stopTimes: {}
+        };
+        
+        try {
+          // Load GTFS trips if not already cached
+          if (!window.gtfsTrips) {
+            const response = await fetch(`${GITHUB_RAW_BASE}/data/trips.json`);
+            if (response.ok) {
+              window.gtfsTrips = await response.json();
+              console.log(`[Viewer] Loaded ${Object.keys(window.gtfsTrips).length} trips for indexing`);
+            }
+          }
+          gtfsDataForIndexing.trips = window.gtfsTrips || {};
+          
+          // Build trip index maps (tripsByRoute, tripsByShape) for visualization
+          const indexMaps = buildTripIndexMaps(processed.tripSummaries, gtfsDataForIndexing);
+          processedData.tripsByRoute = indexMaps.tripsByRoute;
+          processedData.tripsByShape = indexMaps.tripsByShape;
+        } catch (err) {
+          console.warn('[Viewer] Could not build trip index maps:', err);
+        }
+        
         // Initialize route filter
+        initializeRouteFilter(doc, processed.tripSummaries);
         initializeRouteFilter(doc, processed.tripSummaries);
         
         // Setup tab switching
         setupTabSwitching(doc);
         
+        // Initialize map eagerly so visualization works regardless of which tab user is on
+        // THIS IS CRITICAL: If we don't initialize the map here, visualizeSubshapesForBusiestRoutes()
+        // will be skipped in renderCharts() because mapInitialized will be false
+        if (!mapInitialized) {
+          const mapReady = initializeMap(doc);
+          if (mapReady) {
+            mapInitialized = true;
+            console.log('[Viewer] Map initialized eagerly during data load');
+          } else {
+            console.warn('[Viewer] Failed to initialize map during data load');
+          }
+        }
+        
         // Update time filter range (initially all routes are selected)
         updateTimeFilterRangeFromRouteSelection(doc);
         
-        // Render charts with all routes selected
-        renderCharts(doc);
+        // Render charts with all routes selected (AWAIT to ensure visualization completes)
+        try {
+          await renderCharts(doc);
+          console.log('[Viewer] Initial chart rendering and visualization complete');
+        } catch (err) {
+          console.error('[Viewer] Error during initial chart rendering:', err);
+        }
         
         loadingIndicator.style.display = 'none';
         filterSection.style.display = 'block';
@@ -982,7 +1078,7 @@
       }
     });
     
-    applyFilterBtn.addEventListener('click', () => {
+    applyFilterBtn.addEventListener('click', async () => {
       const checkboxes = doc.querySelectorAll('.route-filter input[type="checkbox"]:checked');
       selectedRouteIds.clear();
       checkboxes.forEach(cb => selectedRouteIds.add(cb.value));
@@ -1069,8 +1165,83 @@
         });
       });
       
-      renderCharts(doc);
+      // Show loading indicator for filter application (same as initialization)
+      const loadingIndicator = doc.getElementById('loadingIndicator');
+      if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+        console.log('[Viewer] Filter loading indicator shown');
+      }
+      
+      try {
+        // Await chart rendering to ensure visualization completes
+        await renderCharts(doc);
+        console.log('[Viewer] Filter application and visualization complete');
+      } catch (err) {
+        console.error('[Viewer] Error applying filters:', err);
+      } finally {
+        // Hide loading indicator after visualization is complete
+        if (loadingIndicator) {
+          loadingIndicator.style.display = 'none';
+          console.log('[Viewer] Filter loading indicator hidden');
+        }
+      }
     });
+
+    // Top N Routes selector - attach change listener (initialization already done earlier)
+    if (topNRoutesInput) {
+      topNRoutesInput.addEventListener('change', async () => {
+        TOP_N_ROUTES = parseInt(topNRoutesInput.value) || 150;
+        console.log('[Viewer] Top N Routes changed to:', TOP_N_ROUTES);
+        
+        // Show loading indicator
+        const loadingIndicator = doc.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+          loadingIndicator.style.display = 'block';
+          console.log('[Viewer] Top N Routes loading indicator shown');
+        }
+        
+        // Refresh visualization with new Top N routes (await to ensure completion)
+        try {
+          console.log('[Viewer] Refreshing visualization with new Top N routes...');
+          await renderCharts(doc);
+          console.log('[Viewer] Top N Routes visualization refresh complete');
+        } catch (err) {
+          console.error('[Viewer] Error during Top N Routes refresh:', err);
+        } finally {
+          if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+            console.log('[Viewer] Top N Routes loading indicator hidden');
+          }
+        }
+      });
+    }
+    
+    // Refresh Heatmap button
+    const refreshHeatmapBtn = doc.getElementById('refreshHeatmapBtn');
+    if (refreshHeatmapBtn) {
+      refreshHeatmapBtn.addEventListener('click', async () => {
+        console.log('[Viewer] Refresh button clicked - triggering visualization refresh...');
+        console.log('[Viewer] Current state:', {
+          leafletMapExists: !!leafletMap,
+          mapInitialized: mapInitialized,
+          leafletMapType: leafletMap ? leafletMap.constructor.name : 'null',
+          currentZoom: leafletMap ? leafletMap.getZoom() : 'N/A',
+          currentCenter: leafletMap ? leafletMap.getCenter() : 'N/A'
+        });
+        
+        // Call the visualization function (it manages its own loading overlay)
+        if (leafletMap && mapInitialized) {
+          console.log('[Viewer] Calling visualizeSubshapesForBusiestRoutes...');
+          await visualizeSubshapesForBusiestRoutes();
+          console.log('[Viewer] visualizeSubshapesForBusiestRoutes completed');
+        } else {
+          console.warn('[Viewer] Cannot refresh: map not ready', { 
+            leafletMap: !!leafletMap, 
+            mapInitialized 
+          });
+        }
+      });
+    }
   }
 
   function showError(errorEl, message) {
@@ -1221,7 +1392,7 @@
     const tabContents = doc.querySelectorAll('.tab-content');
     
     tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
+      tab.addEventListener('click', async () => {
         const targetTab = tab.getAttribute('data-tab');
         
         // Update tab buttons
@@ -1245,8 +1416,25 @@
               mapInitialized = true;
               // If we have data, render the heatmap
               if (processedData.stopDeltas.length > 0) {
-                // Re-render with current filters
-                renderCharts(doc);
+                // Show loading indicator while rendering
+                const loadingIndicator = doc.getElementById('loadingIndicator');
+                if (loadingIndicator) {
+                  loadingIndicator.style.display = 'block';
+                  console.log('[Viewer] Map tab loading indicator shown');
+                }
+                
+                try {
+                  // Re-render with current filters (await to ensure completion)
+                  await renderCharts(doc);
+                  console.log('[Viewer] Map tab visualization complete');
+                } catch (err) {
+                  console.error('[Viewer] Error rendering map tab visualization:', err);
+                } finally {
+                  if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                    console.log('[Viewer] Map tab loading indicator hidden');
+                  }
+                }
               }
             }
           } else if (leafletMap) {
@@ -1280,12 +1468,12 @@
       max: 1.0,
       minOpacity,
       gradient: {
-        0.0: 'blue',
-        0.2: 'lime',
-        0.4: 'yellow',
-        0.6: 'orange',
-        0.8: 'red',
-        1.0: 'darkred'
+        0.0: '#ffffff',
+        0.2: '#d3d3d3',
+        0.4: '#a9a9a9',
+        0.6: '#808080',
+        0.8: '#404040',
+        1.0: '#000000'
       }
     };
   }
@@ -1303,6 +1491,66 @@
       cachedHeatmapPoints,
       getHeatLayerOptionsForZoom(leafletMap.getZoom())
     ).addTo(leafletMap);
+  }
+  
+  function addHeatmapLegend(map) {
+    // Create a legend control
+    const legend = L.control({ position: 'bottomright' });
+
+    legend.onAdd = function() {
+      const div = L.DomUtil.create('div', 'heatmap-legend');
+      div.style.cssText = `
+        background-color: white;
+        padding: 12px;
+        border-radius: 5px;
+        box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        max-width: 200px;
+      `;
+
+      const title = document.createElement('div');
+      title.textContent = 'Average Speed (km/h)';
+      title.style.fontWeight = 'bold';
+      title.style.marginBottom = '8px';
+      div.appendChild(title);
+
+      const bins = [
+        { range: '< 5', color: '#d32f2f', label: 'Stopped/Very Slow' },
+        { range: '5 - 15', color: '#f57c00', label: 'Slow' },
+        { range: '15 - 30', color: '#fbc02d', label: 'Normal' },
+        { range: '30 - 50', color: '#7cb342', label: 'Good' },
+        { range: '≥ 50', color: '#388e3c', label: 'Very Good' }
+      ];
+
+      for (const bin of bins) {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.marginBottom = '6px';
+
+        const colorBox = document.createElement('div');
+        colorBox.style.cssText = `
+          width: 16px;
+          height: 16px;
+          background-color: ${bin.color};
+          border-radius: 2px;
+          margin-right: 8px;
+          flex-shrink: 0;
+        `;
+
+        const label = document.createElement('span');
+        label.textContent = `${bin.range} km/h - ${bin.label}`;
+
+        row.appendChild(colorBox);
+        row.appendChild(label);
+        div.appendChild(row);
+      }
+
+      return div;
+    };
+
+    legend.addTo(map);
   }
   
   function initializeMap(doc) {
@@ -1323,16 +1571,16 @@
       // Ensure the container is empty (Leaflet will populate it)
       mapContainer.innerHTML = '';
 
-      // Initialize Leaflet map centered on Toronto
+      // Initialize Leaflet map using configuration
       leafletMap = L.map(mapContainer, {
-        center: [43.65, -79.38],
-        zoom: 11,
+        center: MAP_CONFIG.center,
+        zoom: MAP_CONFIG.zoom || 11,
         preferCanvas: true
       });
       
-      // Add OpenStreetMap tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors',
+      // Add CartoDB Positron (greyscale) tile layer for better subshape visibility
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+        attribution: '&copy; CartoDB &copy; OpenStreetMap contributors',
         maxZoom: 18
       }).addTo(leafletMap);
 
@@ -1340,6 +1588,9 @@
       leafletMap.on('zoomend', () => {
         rebuildHeatLayer();
       });
+      
+      // Add legend for the heatmap
+      addHeatmapLegend(leafletMap);
       
       // Defer a size invalidation to the next tick in case layout just changed (tab switched)
       setTimeout(() => {
@@ -1477,6 +1728,379 @@
       } catch (boundsErr) {
       }
     } catch (err) {
+    }
+  }
+
+  /**
+   * Visualize top 10 busiest routes with subshapes on the map
+   * Calls RTUtil.visualizeTop10BusiestRoutes to generate and render subshapes
+   */
+  async function visualizeSubshapesForBusiestRoutes() {
+    console.log('[DEBUG] ▶️ visualizeSubshapesForBusiestRoutes ENTRY');
+    
+    // Determine the correct document context (popup window or main page)
+    const targetDoc = viewerWindow ? viewerWindow.document : document;
+    console.log('[DEBUG] Using document context:', viewerWindow ? 'popup window' : 'main window');
+    
+    // Show loading overlay in the correct document
+    console.log('[DEBUG] 📍 Showing loading overlay...');
+    const loadingOverlay = showSubshapeLoadingOverlay(targetDoc);
+    console.log('[DEBUG] ✅ Loading overlay created:', !!loadingOverlay);
+
+    try {
+      if (!leafletMap) {
+        console.warn('[DEBUG] ❌ Map not initialized, cannot visualize subshapes');
+        hideSubshapeLoadingOverlay(loadingOverlay);
+        return;
+      }
+
+      if (!window.RTUtil || !window.RTUtil.visualizeTop10BusiestRoutes) {
+        console.warn('[Viewer] RTUtil not loaded, cannot visualize subshapes');
+        hideSubshapeLoadingOverlay(loadingOverlay);
+        return;
+      }
+
+      if (!processedData || !processedData.tripSummaries || Object.keys(processedData.routeStats).length === 0) {
+        console.warn('[Viewer] No processed data available for subshape visualization');
+        hideSubshapeLoadingOverlay(loadingOverlay);
+        return;
+      }
+
+      // CRITICAL: Reset subshapesLayer on refresh to avoid mixing stale layers
+      // Initialize as fresh L.layerGroup() to ensure clean redraw
+      if (window.subshapesLayer) {
+        try {
+          if (leafletMap.hasLayer(window.subshapesLayer)) {
+            leafletMap.removeLayer(window.subshapesLayer);
+            console.log('[Viewer] Removed stale subshapesLayer from map');
+          }
+        } catch (e) {
+          console.warn('[Viewer] Error removing old subshapesLayer:', e);
+        }
+      }
+      
+      // Create fresh layer group for this visualization
+      window.subshapesLayer = L.layerGroup();
+      console.log('[Viewer] Initialized fresh L.layerGroup() for subshapes visualization');
+
+      console.log('[Viewer] Starting subshape visualization...');
+
+      // Load GTFS data needed for subshape generation
+      // This data is loaded from the same GitHub repo as the recorded data
+      const gtfsData = {
+        trips: {},
+        shapes: {},
+        stops: {},
+        routes: {},
+        shapeRouteMap: {},
+        stopTimes: {}
+      };
+
+      // Load trips data
+      if (!window.gtfsTrips) {
+        try {
+          console.log('[Viewer] Loading GTFS trips data for subshape analysis...');
+          const response = await fetch(`${GITHUB_RAW_BASE}/data/trips.json`);
+          if (response.ok) {
+            window.gtfsTrips = await response.json();
+            console.log(`[Viewer] Loaded ${Object.keys(window.gtfsTrips).length} trips`);
+          } else {
+            console.warn('[Viewer] Could not load trips.json:', response.status);
+          }
+        } catch (err) {
+          console.error('[Viewer] Error loading trips data:', err);
+        }
+      }
+      gtfsData.trips = window.gtfsTrips || {};
+
+      // Load shapes data
+      if (!window.gtfsShapes) {
+        try {
+          console.log('[Viewer] Loading GTFS shapes data for subshape analysis...');
+          const response = await fetch(`${GITHUB_RAW_BASE}/data/shapes.json`);
+          if (response.ok) {
+            window.gtfsShapes = await response.json();
+            console.log(`[Viewer] Loaded ${Object.keys(window.gtfsShapes).length} shapes`);
+          } else {
+            console.warn('[Viewer] Could not load shapes.json:', response.status);
+          }
+        } catch (err) {
+          console.error('[Viewer] Error loading shapes data:', err);
+        }
+      }
+      gtfsData.shapes = window.gtfsShapes || {};
+
+      // Load stops data (reuse existing stopsData if available)
+      if (!stopsData || Object.keys(stopsData).length === 0) {
+        try {
+          console.log('[Viewer] Loading stops data for subshape analysis...');
+          await loadStopsData();
+        } catch (err) {
+          console.error('[Viewer] Error loading stops data:', err);
+        }
+      }
+      gtfsData.stops = stopsData || {};
+
+      // Load routes data (reuse existing routesData if available)
+      if (!routesData || Object.keys(routesData).length === 0) {
+        try {
+          console.log('[Viewer] Loading routes data for subshape analysis...');
+          await loadRoutesData();
+        } catch (err) {
+          console.error('[Viewer] Error loading routes data:', err);
+        }
+      }
+      gtfsData.routes = routesData || {};
+
+      // Load shape-route-map data
+      if (!window.gtfsShapeRouteMap) {
+        try {
+          console.log('[Viewer] Loading GTFS shape-route-map for subshape analysis...');
+          const response = await fetch(`${GITHUB_RAW_BASE}/data/shape-route-map.json`);
+          if (response.ok) {
+            window.gtfsShapeRouteMap = await response.json();
+            console.log(`[Viewer] Loaded shape-route-map with ${Object.keys(window.gtfsShapeRouteMap).length} entries`);
+          } else {
+            console.warn('[Viewer] Could not load shape-route-map.json:', response.status);
+          }
+        } catch (err) {
+          console.error('[Viewer] Error loading shape-route-map:', err);
+        }
+      }
+      gtfsData.shapeRouteMap = window.gtfsShapeRouteMap || {};
+
+      // Build stop_times from recording data for all trips we'll visualize
+      // Strategy: Single pass through tripSummaries to:
+      // 1. Identify top 10 routes by trip-hours
+      // 2. Build maps for efficient lookup
+      // 3. For each shape on each top route, select the trip with most stops
+      
+      console.log('[Viewer] Building stop_times data from recording data...');
+      
+      // Use pre-built tripsByRoute map (built during data initialization)
+      // Identify top N routes by trip-hours for this visualization (using TOP_N_ROUTES)
+      const routeMap = {};
+      
+      for (const routeId in processedData.tripsByRoute) {
+        // Filter by selected routes if any are selected
+        if (selectedRouteIds.size > 0 && !selectedRouteIds.has(routeId)) continue;
+        if (!processedData.routeStats[routeId]) continue;
+        routeMap[routeId] = processedData.routeStats[routeId].tripHours || 0;
+      }
+      
+      const topRouteIds = Object.entries(routeMap)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, TOP_N_ROUTES)
+        .map(entry => entry[0]);
+
+      // Use tripsByRoute from processedData for efficient lookups
+      const tripsByRoute = processedData.tripsByRoute;
+
+      // SECOND PASS: For each top route & shape, select the trip with most stops
+      // Keep recorded data separate from GTFS namespace
+      const recordedStopTimes = {};
+      const shapeIdToTripIdMap = {};  // Track which tripId we selected for each shapeId
+      
+      for (const routeId of topRouteIds) {
+        if (!tripsByRoute[routeId]) continue;
+        
+        // Group trips by shape_id
+        const shapeMap = {};
+        for (const trip of tripsByRoute[routeId]) {
+          const shapeId = gtfsData.trips[trip.tripId]?.shape_id;
+          if (!shapeId) continue;
+          
+          if (!shapeMap[shapeId]) {
+            shapeMap[shapeId] = [];
+          }
+          shapeMap[shapeId].push(trip);
+        }
+        
+        // For each shape, pick trip with most stops
+        for (const shapeId in shapeMap) {
+          const tripsForShape = shapeMap[shapeId];
+          const selectedTrip = tripsForShape.reduce((max, t) => 
+            (t.stopCount > max.stopCount) ? t : max
+          );
+          
+          // Track which tripId we selected for this shapeId (to avoid rescanning in utility)
+          shapeIdToTripIdMap[shapeId] = selectedTrip.tripId;
+          
+          // Extract stops from recording data and convert to stop_times format
+          if (processedData.stopDeltasByTrip[selectedTrip.tripId]) {
+            const recordingStops = processedData.stopDeltasByTrip[selectedTrip.tripId];
+            const stopTimesArray = recordingStops.map(s => ({
+              stop_id: s.stopId,
+              stop_sequence: s.stopSeq
+            }));
+            recordedStopTimes[selectedTrip.tripId] = stopTimesArray;
+          }
+        }
+      }
+      
+      console.log(`[Viewer] Built stop_times for ${Object.keys(recordedStopTimes).length} trips from recording data`);
+
+      console.log('[Viewer] GTFS data prepared:', {
+        trips: Object.keys(gtfsData.trips).length,
+        shapes: Object.keys(gtfsData.shapes).length,
+        stops: Object.keys(gtfsData.stops).length,
+        routes: Object.keys(gtfsData.routes).length,
+        shapeRouteMap: Object.keys(gtfsData.shapeRouteMap).length,
+        recordedStopTimes: Object.keys(recordedStopTimes).length
+      });
+
+      // Clear the heatmap layer to show subshapes on top
+      console.log('[DEBUG] 🗺️ Clearing heatmap layer...');
+      if (heatmapLayer) {
+        leafletMap.removeLayer(heatmapLayer);
+        heatmapLayer = null;
+      }
+      cachedHeatmapPoints = null;
+
+      // Call the utility function with separate recorded data and shape→trip mapping
+      console.log('[DEBUG] 🔧 Calling RTUtil.visualizeTop10BusiestRoutes...');
+      const result = await window.RTUtil.visualizeTop10BusiestRoutes(
+        processedData.tripSummaries,
+        processedData.routeStats,
+        gtfsData,
+        recordedStopTimes,
+        shapeIdToTripIdMap,
+        leafletMap,
+        processedData.stopDeltasByTrip,  // Pass full stop details for speed calculation
+        TOP_N_ROUTES,  // Pass the topN parameter
+        segmentsCache  // Pass the persistent segments cache
+      );
+      console.log('[DEBUG] ✅ RTUtil call returned:', result?.metadata);
+      
+      // 🔍 SANITY CHECK: Verify shapes were actually added to layer
+      if (window.subshapesLayer) {
+        const shapeCount = window.subshapesLayer.getLayers().length;
+        console.log('[DEBUG] 🔍 Subshapes layer contains', shapeCount, 'visual elements');
+        if (shapeCount === 0) {
+          console.warn('[DEBUG] ⚠️ WARNING: Subshapes layer is EMPTY! No shapes were rendered!');
+        }
+      } else {
+        console.error('[DEBUG] ❌ ERROR: window.subshapesLayer is undefined!');
+      }
+      
+      // Refresh map size and view to ensure layers are visible
+      if (leafletMap) {
+        try {
+          console.log('[Viewer] Refreshing map view...');
+          leafletMap.invalidateSize();
+          
+          // Check if subshapesLayer is on the map
+          if (window.subshapesLayer) {
+            const hasLayer = leafletMap.hasLayer(window.subshapesLayer);
+            console.log('[DEBUG] 🗺️ Subshapes layer on map:', hasLayer);
+            
+            if (!hasLayer) {
+              console.warn('[DEBUG] ⚠️ Subshapes layer not on map! Attempting to re-add...');
+              try {
+                window.subshapesLayer.addTo(leafletMap);
+                console.log('[DEBUG] ✅ Re-added subshapes layer to map');
+              } catch (e) {
+                console.error('[DEBUG] ❌ Failed to re-add subshapes layer:', e);
+              }
+            }
+          } else {
+            console.warn('[DEBUG] ❌ window.subshapesLayer is not defined');
+          }
+        } catch (e) {
+          console.error('[DEBUG] ❌ Error refreshing map:', e);
+        }
+      }
+      
+      // Log summary statistics (removed verbose segment details)
+      const segmentKeys = Object.keys(segmentsCache);
+      console.log(`[DEBUG] 📊 Segments cache: ${segmentKeys.length} total segments built`);
+
+    } catch (err) {
+      console.error('[DEBUG] ❌ Error visualizing subshapes:', err);
+    } finally {
+      // Hide loading overlay
+      console.log('[DEBUG] 🔚 Hiding loading overlay...');
+      hideSubshapeLoadingOverlay(loadingOverlay);
+      console.log('[DEBUG] ⏹️ visualizeSubshapesForBusiestRoutes EXIT');
+    }
+  }
+
+  function showSubshapeLoadingOverlay(targetDoc) {
+    // Use provided document or fallback to global document
+    const doc = targetDoc || document;
+    console.log('[DEBUG] 📍 showSubshapeLoadingOverlay - using doc:', doc === document ? 'MAIN' : 'POPUP');
+    
+    // Create overlay element
+    const overlay = doc.createElement('div');
+    overlay.id = 'subshapeLoadingOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      pointer-events: auto;
+    `;
+
+    // Create spinner (MUST use doc, not global document)
+    const spinner = doc.createElement('div');
+    spinner.style.cssText = `
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-top: 5px solid #ffffff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    `;
+
+    // Add animation (MUST use doc)
+    const style = doc.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    doc.head.appendChild(style);
+
+    // Add loading text (MUST use doc)
+    const text = doc.createElement('div');
+    text.style.cssText = `
+      position: absolute;
+      color: white;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      margin-top: 80px;
+      text-align: center;
+    `;
+    text.textContent = 'Generating subshapes...';
+
+    overlay.appendChild(spinner);
+    overlay.appendChild(text);
+    doc.body.appendChild(overlay);
+
+    console.log('[Viewer] Loading overlay shown in correct document context');
+    return overlay;
+  }
+
+  function hideSubshapeLoadingOverlay(overlay) {
+    if (overlay && overlay.parentNode) {
+      try {
+        overlay.parentNode.removeChild(overlay);
+        console.log('[DEBUG] ✅ Loading overlay removed from DOM');
+      } catch (e) {
+        console.error('[DEBUG] ❌ Error removing overlay:', e);
+      }
+    } else {
+      console.warn('[DEBUG] ⚠️ Cannot remove overlay - overlay or parentNode missing', {
+        overlayExists: !!overlay,
+        hasParent: overlay?.parentNode ? true : false
+      });
     }
   }
 
@@ -1775,11 +2399,13 @@
     return true;
   }
 
-  function renderCharts(doc) {
-    console.log('[Viewer] Updating charts with:', {
+  async function renderCharts(doc) {
+    console.log('[Viewer] ▶️ renderCharts ENTRY:', {
       tripSummaries: processedData.tripSummaries.length,
       stopDeltas: processedData.stopDeltas.length,
-      selectedRoutes: Array.from(selectedRouteIds)
+      selectedRoutes: Array.from(selectedRouteIds),
+      mapInitialized,
+      leafletMapExists: !!leafletMap
     });
     
     // Apply time filtering
@@ -1848,11 +2474,36 @@
     
     updateHourlyDelayChart(doc, filteredStopDeltas, hourlyStartEpoch, hourlyEndEpoch, timeFilterBaseDay);
     
-    // Update heatmap (pass all filtered stop deltas, not just top 20)
-    updateHeatmap(filteredStopDeltas);
+    // DISABLED: Old heatmap plotting - now using subshape visualization instead
+    // updateHeatmap(filteredStopDeltas);
+
+    // Visualize subshapes for top 10 busiest routes (if map is ready)
+    // Replaced heatmap with subshape visualization for better route-level insights
+    // IMPORTANT: Await visualization to ensure loading overlay and all async work completes
+    console.log('[DEBUG] 🎯 Visualization check:', {
+      leafletMapExists: !!leafletMap,
+      mapInitialized,
+      shouldVisualize: leafletMap && mapInitialized
+    });
+    
+    if (leafletMap && mapInitialized) {
+      try {
+        console.log('[DEBUG] ▶️ Starting visualization...');
+        await visualizeSubshapesForBusiestRoutes();
+        console.log('[DEBUG] ✅ Subshape visualization COMPLETED');
+      } catch (err) {
+        console.error('[DEBUG] ❌ Subshape visualization ERROR:', err);
+      }
+    } else {
+      console.warn('[DEBUG] ⏭️ Skipping visualization:', {
+        reason: !leafletMap ? 'no leafletMap' : 'mapInitialized=false'
+      });
+    }
     
     // Update stats tab
     renderStatsTab(doc, filteredTripSummaries, filteredStopDeltas);
+    
+    console.log('[Viewer] ⏹️ renderCharts EXIT - all updates complete');
   }
   
   // Helper functions for time filtering (working with epoch seconds)
@@ -2487,7 +3138,8 @@
     open: openViewer,
     sampleTrips: sampleTripsForRoute,
     debugTripById: debugTripById,
-    debugTripDelays: debugTripDelays
+    debugTripDelays: debugTripDelays,
+    visualizeSubshapesForBusiestRoutes: visualizeSubshapesForBusiestRoutes
   };
 
   // ============================================================================
