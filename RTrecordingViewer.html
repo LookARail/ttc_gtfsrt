@@ -54,15 +54,19 @@
         
         <h3 style="margin-top: 20px;">Time Filter</h3>
         <div class="time-filter">
-          <div class="form-group time-filter-row">
-            <div class="time-col">
-              <label for="timeStart">Start:</label>
-              <input type="text" id="timeStart" placeholder="HH:MM:SS" disabled class="time-input">
+          <div class="time-range-display">
+            <div class="time-display-item">
+              <span class="time-label">Start:</span>
+              <span class="time-value" id="timeDisplayStart">--:--</span>
             </div>
-            <div class="time-col">
-              <label for="timeEnd">End:</label>
-              <input type="text" id="timeEnd" placeholder="HH:MM:SS" disabled class="time-input">
+            <div class="time-display-item">
+              <span class="time-label">End:</span>
+              <span class="time-value" id="timeDisplayEnd">--:--</span>
             </div>
+          </div>
+          <div class="range-slider-container">
+            <input type="range" id="timeSliderStart" class="range-slider" min="0" max="100" value="0" disabled />
+            <input type="range" id="timeSliderEnd" class="range-slider" min="0" max="100" value="100" disabled />
           </div>
           <div id="timeRangeInfo" class="time-range-info">Available range: —</div>
         </div>

@@ -11,7 +11,7 @@
 
   const TIME_ZONE = (window.APP_CONFIG && window.APP_CONFIG.timeZone) || 'UTC';
   const MAP_CONFIG = (window.APP_CONFIG && window.APP_CONFIG.map) || { center: [43.65, -79.38], zoom: 11 };
-  let TOP_N_ROUTES = 10; // Customizable via UI
+  let TOP_N_ROUTES = 10; // Customizable via UI - this is the source of truth
   let viewerWindow = null;
   let currentData = null;
   let stopsData = null;
@@ -156,6 +156,28 @@
     const secs = parts.length >= 3 && Number.isFinite(parts[2]) ? parts[2] : 0;
     if (hrs === null || isNaN(hrs) || isNaN(mins) || isNaN(secs)) return null;
     return Math.floor(hrs) * 3600 + Math.floor(mins) * 60 + Math.floor(secs);
+  }
+
+  // Time slider helper functions (30-minute increments)
+  const TIME_SLOT_SECONDS = 30 * 60; // 30 minutes in seconds
+
+  function secondsToSliderValue(seconds, baseDay) {
+    if (seconds === null || seconds === undefined || baseDay === null || baseDay === undefined) return 0;
+    const offsetSeconds = Math.max(0, Math.floor(seconds - baseDay));
+    return Math.floor(offsetSeconds / TIME_SLOT_SECONDS);
+  }
+
+  function sliderValueToSeconds(sliderValue, baseDay) {
+    if (baseDay === null || baseDay === undefined) return null;
+    return baseDay + (Math.floor(sliderValue) * TIME_SLOT_SECONDS);
+  }
+
+  function secondsToDisplayTime(seconds, baseDay) {
+    if (seconds === null || baseDay === null) return '--:--';
+    const offsetSeconds = Math.max(0, Math.floor(seconds - baseDay));
+    const hours = Math.floor(offsetSeconds / 3600);
+    const minutes = Math.floor((offsetSeconds % 3600) / 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
   }
 
   // ============================================================================
@@ -902,10 +924,10 @@
     const applyFilterBtn = doc.getElementById('applyFilter');
     const topNRoutesInput = doc.getElementById('topNRoutes');
     
-    // Initialize TOP_N_ROUTES from input FIRST, before any data loading or visualization
+    // Initialize HTML input to match TOP_N_ROUTES constant (constant is source of truth)
     if (topNRoutesInput) {
-      TOP_N_ROUTES = parseInt(topNRoutesInput.value) || 150;
-      console.log('[Viewer] TOP_N_ROUTES initialized to:', TOP_N_ROUTES);
+      topNRoutesInput.value = TOP_N_ROUTES;
+      console.log('[Viewer] Top N Routes input initialized to constant:', TOP_N_ROUTES);
     }
     
     // Data source selection (memory option removed)
@@ -1017,6 +1039,13 @@
         initializeRouteFilter(doc, processed.tripSummaries);
         initializeRouteFilter(doc, processed.tripSummaries);
         
+        // Initialize Top N Routes textbox to match TOP_N_ROUTES constant
+        const topNRoutesInput = doc.getElementById('topNRoutes');
+        if (topNRoutesInput) {
+          topNRoutesInput.value = TOP_N_ROUTES;
+          console.log('[Viewer] Top N Routes textbox set to constant:', TOP_N_ROUTES);
+        }
+        
         // Setup tab switching
         setupTabSwitching(doc);
         
@@ -1028,15 +1057,25 @@
         const mapTab = doc.querySelector('.tab[data-tab="map"]');
         const isMapTabActive = mapTab && mapTab.classList.contains('active');
         
-        if (isMapTabActive && !mapInitialized) {
-          const mapReady = initializeMap(doc);
-          if (mapReady) {
-            mapInitialized = true;
-            console.log('[Viewer] Map initialized during data load (Map tab was active)');
+        if (isMapTabActive) {
+          if (!mapInitialized) {
+            const mapReady = initializeMap(doc);
+            if (mapReady) {
+              mapInitialized = true;
+              console.log('[Viewer] Map initialized during data load (Map tab was active)');
+            } else {
+              console.warn('[Viewer] Failed to initialize map during data load');
+            }
           } else {
-            console.warn('[Viewer] Failed to initialize map during data load');
+            // Map already initialized and user is still on the map tab
+            // Clear cached visualization data to force a fresh render
+            cachedHeatmapPoints = null;
+            if (window.subshapesLayer && leafletMap && leafletMap.hasLayer(window.subshapesLayer)) {
+              leafletMap.removeLayer(window.subshapesLayer);
+              console.log('[Viewer] Cleared stale map visualization for refresh');
+            }
           }
-        } else if (!isMapTabActive) {
+        } else {
           console.log('[Viewer] Map initialization deferred (user is not on Map tab)');
         }
         
@@ -1090,16 +1129,17 @@
       selectedRouteIds.clear();
       checkboxes.forEach(cb => selectedRouteIds.add(cb.value));
       
-      // Read time filter values (extended HH:MM[:SS]) and compute epoch range
-      const timeStartInput = doc.getElementById('timeStart');
-      const timeEndInput = doc.getElementById('timeEnd');
+      // Read time filter values from sliders and compute epoch range
+      const timeSliderStart = doc.getElementById('timeSliderStart');
+      const timeSliderEnd = doc.getElementById('timeSliderEnd');
 
-      if (timeStartInput.value && timeEndInput.value && timeFilterBaseDay != null) {
-        const offsetStart = parseExtendedTimeToOffset(timeStartInput.value);
-        const offsetEnd = parseExtendedTimeToOffset(timeEndInput.value);
-        if (offsetStart != null && offsetEnd != null) {
-          timeFilterStartEpoch = timeFilterBaseDay + offsetStart;
-          timeFilterEndEpoch = timeFilterBaseDay + offsetEnd;
+      if (!timeSliderStart.disabled && !timeSliderEnd.disabled && timeFilterBaseDay != null) {
+        const startEpoch = sliderValueToSeconds(parseInt(timeSliderStart.value), timeFilterBaseDay);
+        const endEpoch = sliderValueToSeconds(parseInt(timeSliderEnd.value), timeFilterBaseDay);
+        
+        if (startEpoch != null && endEpoch != null) {
+          timeFilterStartEpoch = startEpoch;
+          timeFilterEndEpoch = endEpoch;
           // If end is before start, assume it wraps to next day
           if (timeFilterEndEpoch < timeFilterStartEpoch) {
             timeFilterEndEpoch += 86400;
@@ -1119,77 +1159,24 @@
         timeFilterEpoch: { start: timeFilterStartEpoch, end: timeFilterEndEpoch }
       });
       
-      // Update time filter range based on current dataset
-      updateTimeFilterRange(doc);
-      
-      // Debug: Show detailed stop-level data for up to 20 random trips
-      const filteredTrips = processedData.tripSummaries.filter(t => 
-        selectedRouteIds.size === 0 || selectedRouteIds.has(t.routeId)
-      );
-      
-      const sampleSize = Math.min(20, filteredTrips.length);
-      const randomTrips = [];
-      const usedIndices = new Set();
-      
-      while (randomTrips.length < sampleSize && usedIndices.size < filteredTrips.length) {
-        const idx = Math.floor(Math.random() * filteredTrips.length);
-        if (!usedIndices.has(idx)) {
-          usedIndices.add(idx);
-          randomTrips.push(filteredTrips[idx]);
-        }
-      }
-      
-      console.log(`[Viewer Debug] Showing detailed stop data for ${randomTrips.length} random trips:`);
-      
-      randomTrips.forEach((tripSummary, tripIdx) => {
-        const tripData = currentData.recordedData[tripSummary.tripId];
-        if (!tripData) return;
-        
-        const stopDetails = [];
-        for (const stopSeq in tripData.stops) {
-          const stop = tripData.stops[stopSeq];
-          const scheduledEpoch = stop.sch_arr || stop.sch_dep;
-          let delta = (isValidArrivalTime(stop.arr) && scheduledEpoch) ? stop.arr - scheduledEpoch : null;
-          delta = normalizeDelay(delta);
-          
-          stopDetails.push({
-            seq: stop.seq,
-            stopId: stop.sid,
-            scheduledEpoch: scheduledEpoch,
-            actualEpoch: stop.arr,
-            actualTime: isValidArrivalTime(stop.arr) ? new Date(stop.arr * 1000).toISOString() : 'MISSING',
-            delta: delta !== null ? `${delta}s (${formatDuration(delta)})` : 'NULL'
-          });
-        }
-        
-        console.log(`[Viewer Debug] Trip ${tripIdx + 1}/${randomTrips.length}:`, {
-          tripId: tripSummary.tripId,
-          routeId: tripSummary.routeId,
-          vehicleId: tripSummary.vehicleId,
-          maxDelay: tripSummary.maxDelay !== null ? `${tripSummary.maxDelay}s (${formatDuration(tripSummary.maxDelay)})` : 'NULL',
-          stopCount: stopDetails.length,
-          stops: stopDetails
-        });
-      });
-      
-      // Show loading indicator for filter application (same as initialization)
+      // Show loading indicator
       const loadingIndicator = doc.getElementById('loadingIndicator');
       if (loadingIndicator) {
         loadingIndicator.style.display = 'block';
-        console.log('[Viewer] Filter loading indicator shown');
+        console.log('[Viewer] Apply filter loading indicator shown');
       }
       
+      // Render charts with current route and time filters
       try {
-        // Await chart rendering to ensure visualization completes
+        console.log('[Viewer] Re-rendering charts with applied filters...');
         await renderCharts(doc);
-        console.log('[Viewer] Filter application and visualization complete');
+        console.log('[Viewer] Charts re-rendered with applied filters');
       } catch (err) {
         console.error('[Viewer] Error applying filters:', err);
       } finally {
-        // Hide loading indicator after visualization is complete
         if (loadingIndicator) {
           loadingIndicator.style.display = 'none';
-          console.log('[Viewer] Filter loading indicator hidden');
+          console.log('[Viewer] Apply filter loading indicator hidden');
         }
       }
     });
@@ -1222,6 +1209,31 @@
         }
       });
     }
+
+    // Time slider listeners - update display when sliders change
+    const timeSliderStart = doc.getElementById('timeSliderStart');
+    const timeSliderEnd = doc.getElementById('timeSliderEnd');
+    const timeDisplayStart = doc.getElementById('timeDisplayStart');
+    const timeDisplayEnd = doc.getElementById('timeDisplayEnd');
+
+    if (timeSliderStart && timeDisplayStart) {
+      timeSliderStart.addEventListener('input', () => {
+        if (timeFilterBaseDay !== null) {
+          const startEpoch = sliderValueToSeconds(parseInt(timeSliderStart.value), timeFilterBaseDay);
+          timeDisplayStart.textContent = secondsToDisplayTime(startEpoch, timeFilterBaseDay);          
+        }
+      });
+    }
+
+    if (timeSliderEnd && timeDisplayEnd) {
+      timeSliderEnd.addEventListener('input', () => {
+        if (timeFilterBaseDay !== null) {
+          const endEpoch = sliderValueToSeconds(parseInt(timeSliderEnd.value), timeFilterBaseDay);
+          timeDisplayEnd.textContent = secondsToDisplayTime(endEpoch, timeFilterBaseDay);
+          console.log('[Viewer] Time slider end changed to:', timeDisplayEnd.textContent);
+        }
+      });
+    }
     
     // Refresh Heatmap button
     const refreshHeatmapBtn = doc.getElementById('refreshHeatmapBtn');
@@ -1247,25 +1259,25 @@
           // TODO: Implement metric switching when RTUtil supports multiple metrics
         }
         
-        console.log('[Viewer] Current state:', {
-          leafletMapExists: !!leafletMap,
-          mapInitialized: mapInitialized,
-          leafletMapType: leafletMap ? leafletMap.constructor.name : 'null',
-          currentZoom: leafletMap ? leafletMap.getZoom() : 'N/A',
-          currentCenter: leafletMap ? leafletMap.getCenter() : 'N/A',
-          topNRoutes: TOP_N_ROUTES
-        });
+        // Show loading indicator
+        const loadingIndicator = doc.getElementById('loadingIndicator');
+        if (loadingIndicator) {
+          loadingIndicator.style.display = 'block';
+          console.log('[Viewer] Refresh loading indicator shown');
+        }
         
-        // Call the visualization function (it manages its own loading overlay)
-        if (leafletMap && mapInitialized) {
-          console.log('[Viewer] Calling visualizeSubshapesForBusiestRoutes with TOP_N_ROUTES:', TOP_N_ROUTES);
-          await visualizeSubshapesForBusiestRoutes();
-          console.log('[Viewer] visualizeSubshapesForBusiestRoutes completed');
-        } else {
-          console.warn('[Viewer] Cannot refresh: map not ready', { 
-            leafletMap: !!leafletMap, 
-            mapInitialized 
-          });
+        // Re-render charts with current filters applied (this will refresh the heatmap with time filter)
+        try {
+          console.log('[Viewer] Refreshing visualization with current filters...');
+          await renderCharts(doc);
+          console.log('[Viewer] visualization refresh complete');
+        } catch (err) {
+          console.error('[Viewer] Error during refresh:', err);
+        } finally {
+          if (loadingIndicator) {
+            loadingIndicator.style.display = 'none';
+            console.log('[Viewer] Refresh loading indicator hidden');
+          }
         }
       });
     }
@@ -1293,13 +1305,15 @@
   
   // Update time filter range based on currently checked routes (not selectedRouteIds)
   function updateTimeFilterRangeFromRouteSelection(doc) {
-    const timeStartInput = doc.getElementById('timeStart');
-    const timeEndInput = doc.getElementById('timeEnd');
+    const timeSliderStart = doc.getElementById('timeSliderStart');
+    const timeSliderEnd = doc.getElementById('timeSliderEnd');
+    const timeDisplayStart = doc.getElementById('timeDisplayStart');
+    const timeDisplayEnd = doc.getElementById('timeDisplayEnd');
     const timeRangeInfo = doc.getElementById('timeRangeInfo');
 
     if (!processedData.tripSummaries || processedData.tripSummaries.length === 0) {
-      timeStartInput.disabled = true;
-      timeEndInput.disabled = true;
+      timeSliderStart.disabled = true;
+      timeSliderEnd.disabled = true;
       if (timeRangeInfo) timeRangeInfo.innerHTML = 'No trips available';
       return;
     }
@@ -1330,38 +1344,56 @@
     }
 
     if (minTime !== null && maxTime !== null) {
-      timeStartInput.disabled = false;
-      timeEndInput.disabled = false;
+      timeSliderStart.disabled = false;
+      timeSliderEnd.disabled = false;
 
       // Base day is the midnight epoch of the earliest recorded time
       const baseDay = Math.floor(minTime / 86400) * 86400;
       timeFilterBaseDay = baseDay;
 
-      // Show extended HH:MM:SS where hours may be >24
-      timeStartInput.value = convertEpochToExtendedTime(minTime, baseDay);
-      timeEndInput.value = convertEpochToExtendedTime(maxTime, baseDay);
-      // Update the available range display using day-prefix formatting
+      // Round down minTime to nearest 30-minute increment
+      const minSliderValue = secondsToSliderValue(minTime, baseDay);
+      // Round up maxTime to nearest 30-minute increment
+      const maxTimeRounded = baseDay + Math.ceil((maxTime - baseDay) / TIME_SLOT_SECONDS) * TIME_SLOT_SECONDS;
+      const maxSliderValue = secondsToSliderValue(maxTimeRounded, baseDay);
+
+      // Set slider ranges
+      timeSliderStart.min = minSliderValue;
+      timeSliderStart.max = maxSliderValue;
+      timeSliderStart.value = minSliderValue;
+
+      timeSliderEnd.min = minSliderValue;
+      timeSliderEnd.max = maxSliderValue;
+      timeSliderEnd.value = maxSliderValue;
+
+      // Update display
+      timeDisplayStart.textContent = secondsToDisplayTime(minTime, baseDay);
+      timeDisplayEnd.textContent = secondsToDisplayTime(maxTimeRounded, baseDay);
+
+      // Update the available range display
       if (timeRangeInfo) {
         const startDisplay = formatEpochWithDayPrefix(minTime, baseDay);
-        const endDisplay = formatEpochWithDayPrefix(maxTime, baseDay);
+        const endDisplay = formatEpochWithDayPrefix(maxTimeRounded, baseDay);
         timeRangeInfo.innerHTML = `Available range: ${startDisplay} to ${endDisplay}`;
       }
     } else {
-      timeStartInput.disabled = true;
-      timeEndInput.disabled = true;
+      timeSliderStart.disabled = true;
+      timeSliderEnd.disabled = true;
       if (timeRangeInfo) timeRangeInfo.innerHTML = 'No valid scheduled times found';
     }
   }
   
   // Update time filter range based on applied selectedRouteIds
   function updateTimeFilterRange(doc) {
-    const timeStartInput = doc.getElementById('timeStart');
-    const timeEndInput = doc.getElementById('timeEnd');
+    const timeSliderStart = doc.getElementById('timeSliderStart');
+    const timeSliderEnd = doc.getElementById('timeSliderEnd');
+    const timeDisplayStart = doc.getElementById('timeDisplayStart');
+    const timeDisplayEnd = doc.getElementById('timeDisplayEnd');
     const timeRangeInfo = doc.getElementById('timeRangeInfo');
     
     if (!processedData.tripSummaries || processedData.tripSummaries.length === 0) {
-      timeStartInput.disabled = true;
-      timeEndInput.disabled = true;
+      timeSliderStart.disabled = true;
+      timeSliderEnd.disabled = true;
       if (timeRangeInfo) timeRangeInfo.innerHTML = 'No trips available';
       return;
     }
@@ -1387,27 +1419,40 @@
     }
     
     if (minTime !== null && maxTime !== null) {
-      timeStartInput.disabled = false;
-      timeEndInput.disabled = false;
+      timeSliderStart.disabled = false;
+      timeSliderEnd.disabled = false;
       
-      // Set default values if not already set
-      if (!timeStartInput.value) {
-        timeStartInput.value = convertScheduledToTimeInput(minTime);
-      }
-      if (!timeEndInput.value) {
-        timeEndInput.value = convertScheduledToTimeInput(maxTime);
-      }
-      // Compute base day and display with day-prefix formatting so hours >=24 or D+HH:MM:SS are shown
+      // Compute base day
       const baseDay = Math.floor(minTime / 86400) * 86400;
       timeFilterBaseDay = baseDay;
+
+      // Round down minTime to nearest 30-minute increment
+      const minSliderValue = secondsToSliderValue(minTime, baseDay);
+      // Round up maxTime to nearest 30-minute increment
+      const maxTimeRounded = baseDay + Math.ceil((maxTime - baseDay) / TIME_SLOT_SECONDS) * TIME_SLOT_SECONDS;
+      const maxSliderValue = secondsToSliderValue(maxTimeRounded, baseDay);
+
+      // Set slider ranges and default values
+      timeSliderStart.min = minSliderValue;
+      timeSliderStart.max = maxSliderValue;
+      timeSliderStart.value = minSliderValue;
+
+      timeSliderEnd.min = minSliderValue;
+      timeSliderEnd.max = maxSliderValue;
+      timeSliderEnd.value = maxSliderValue;
+
+      // Update display
+      timeDisplayStart.textContent = secondsToDisplayTime(minTime, baseDay);
+      timeDisplayEnd.textContent = secondsToDisplayTime(maxTimeRounded, baseDay);
+
       if (timeRangeInfo) {
         const startDisplay = formatEpochWithDayPrefix(minTime, baseDay);
-        const endDisplay = formatEpochWithDayPrefix(maxTime, baseDay);
+        const endDisplay = formatEpochWithDayPrefix(maxTimeRounded, baseDay);
         timeRangeInfo.innerHTML = `Available range: ${startDisplay} to ${endDisplay}`;
       }
     } else {
-      timeStartInput.disabled = true;
-      timeEndInput.disabled = true;
+      timeSliderStart.disabled = true;
+      timeSliderEnd.disabled = true;
       if (timeRangeInfo) {
         timeRangeInfo.innerHTML = 'No valid scheduled times found';
       }
@@ -1515,8 +1560,6 @@
     // TUNING GUIDE: Adjust radius/blur vs. zoom here
     const radius = clamp(Math.round(10 + Math.pow(zoom-10, 1.5) * 2.0), 10, 55);
     const blur = clamp(Math.round(radius * 0.85), 8, 45);
-
-    console.log(`[Viewer] Heatmap options for zoom ${zoom}: radius=${radius}px, blur=${blur}px, minOpacity=${zoom >= 16 ? 0.25 : (zoom >= 14 ? 0.35 : 0.5)}`);
 
     // Slightly reduce opacity at high zoom to avoid full-map saturation.
     const minOpacity = zoom >= 16 ? 0.25 : (zoom >= 14 ? 0.35 : 0.5);
@@ -1787,6 +1830,9 @@
         }
       } catch (boundsErr) {
       }
+      
+      // Final summary log
+      console.log(`[Heatmap] Generated heatmap: ${stopAggregations.length} stops aggregated, ${heatmapPoints.length} points plotted, delay range ${(p90 - p10).toFixed(0)}s`);
     } catch (err) {
     }
   }
@@ -1795,8 +1841,16 @@
    * Visualize top 10 busiest routes with subshapes on the map
    * Calls RTUtil.visualizeTop10BusiestRoutes to generate and render subshapes
    */
-  async function visualizeSubshapesForBusiestRoutes() {
+  async function visualizeSubshapesForBusiestRoutes(filteredTripSummaries = null) {
     console.log('[DEBUG] ▶️ visualizeSubshapesForBusiestRoutes ENTRY');
+    
+    // Use filtered trip summaries if provided, otherwise use all trip summaries
+    const tripsToVisualize = filteredTripSummaries || processedData.tripSummaries;
+    console.log('[DEBUG] Using trip summaries:', {
+      filtered: !!filteredTripSummaries,
+      count: tripsToVisualize.length,
+      allCount: processedData.tripSummaries.length
+    });
     
     // Determine the correct document context (popup window or main page)
     console.log('[DEBUG] 🔍 Document context decision:', {
@@ -1837,7 +1891,7 @@
         return;
       }
 
-      if (!processedData || !processedData.tripSummaries || Object.keys(processedData.routeStats).length === 0) {
+      if (!processedData || !tripsToVisualize || Object.keys(processedData.routeStats).length === 0) {
         console.warn('[Viewer] No processed data available for subshape visualization');
         hideSubshapeLoadingOverlay(loadingOverlay);
         return;
@@ -2077,7 +2131,6 @@
       });
 
       // Clear the heatmap layer to show subshapes on top
-      console.log('[DEBUG] 🗺️ Clearing heatmap layer...');
       if (heatmapLayer) {
         leafletMap.removeLayer(heatmapLayer);
         heatmapLayer = null;
@@ -2093,7 +2146,7 @@
       });
       
       const result = await window.RTUtil.visualizeTop10BusiestRoutes(
-        processedData.tripSummaries,
+        tripsToVisualize,
         processedData.routeStats,
         gtfsData,
         recordedStopTimes,
@@ -2389,9 +2442,19 @@
       checkbox.value = routeId;
       checkbox.checked = true;
       
-      // Get route name if available
-      const routeName = routesData && routesData[routeId] ? routesData[routeId].route_long_name : null;
-      const displayText = routeName ? ` ${routeId} - ${routeName}` : ` ${routeId}`;
+      // Get route short name and long name if available
+      const routeData = routesData && routesData[routeId] ? routesData[routeId] : null;
+      const shortName = routeData ? routeData.route_short_name : null;
+      const longName = routeData ? routeData.route_long_name : null;
+      let displayText = ` ${routeId}`;
+      
+      if (shortName && longName) {
+        displayText = ` ${shortName} - ${longName}`;
+      } else if (shortName) {
+        displayText = ` ${shortName}`;
+      } else if (longName) {
+        displayText = ` ${longName}`;
+      }
       
       label.appendChild(checkbox);
       label.appendChild(doc.createTextNode(displayText));
@@ -2747,8 +2810,8 @@
     
     if (leafletMap && mapInitialized && isMapTabActive) {
       try {
-        console.log('[DEBUG] ▶️ Starting visualization...');
-        await visualizeSubshapesForBusiestRoutes();
+        console.log('[DEBUG] ▶️ Starting visualization with filtered trip data...');
+        await visualizeSubshapesForBusiestRoutes(filteredTripSummaries);
         console.log('[DEBUG] ✅ Subshape visualization COMPLETED');
       } catch (err) {
         console.error('[DEBUG] ❌ Subshape visualization ERROR:', err);

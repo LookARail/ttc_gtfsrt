@@ -231,6 +231,14 @@
       return { topRoutes: [], segmentsByRoute: {}, metadata: { error: 'Map not available' } };
     }
 
+    // DEBUG: Show what data was passed in
+    console.log('[RTUtil] Function called with:', {
+      tripSummariesCount: tripSummaries?.length || 0,
+      stopDeltasByTripCount: stopDeltasByTrip ? Object.keys(stopDeltasByTrip).length : 0,
+      masterSegmentsCount: masterSegments ? Object.keys(masterSegments).length : 0,
+      topN
+    });
+
     if (!gtfsData || !gtfsData.trips || !gtfsData.shapes) {
       console.error('[RTUtil] GTFS data not loaded');
       return { topRoutes: [], segmentsByRoute: {}, metadata: { error: 'GTFS data not loaded' } };
@@ -263,7 +271,6 @@
       }
       
       window.subshapesLayer = L.layerGroup();
-      console.log('[RTUtil] Created new subshapes layer');
 
       // Step 2: Calculate top 10 busiest routes by trip-hours
       const routeMap = {};
@@ -285,7 +292,17 @@
       routeList.sort((a, b) => b.tripHours - a.tripHours);
       const topRoutes = routeList.slice(0, topN);
 
-      console.log(`[RTUtil] Top ${topN} busiest routes:`, topRoutes.map(r => ({ routeId: r.routeId, tripHours: r.tripHours.toFixed(2) })));
+      // Step 2b: Create a Set of recorded trip IDs for fast lookup (time-filtered trips)
+      // This ensures we only use trips from the current time filter, not all GTFS trips
+      const recordedTripIds = new Set(tripSummaries.map(t => t.tripId));
+
+      // Step 2c: Create filtered copy of stopDeltasByTrip containing only time-filtered trips
+      const filteredStopDeltasByTrip = {};
+      for (const tripId of recordedTripIds) {
+        if (stopDeltasByTrip[tripId]) {
+          filteredStopDeltasByTrip[tripId] = stopDeltasByTrip[tripId];
+        }
+      }
 
       // Step 3: Track segments used for these top routes for visualization
       const segmentsByRoute = {};
@@ -304,9 +321,9 @@
           shapes: {}
         };
 
-        // Find all trips belonging to this route
+        // Find all trips belonging to this route (only from recorded/time-filtered set)
         const tripsForRoute = Object.entries(trips)
-          .filter(([, trip]) => trip.route_id === routeId)
+          .filter(([tripId, trip]) => trip.route_id === routeId && recordedTripIds.has(tripId))
           .map(([tripId, trip]) => ({ tripId, ...trip }));
 
         // Extract unique shape_ids
@@ -326,18 +343,28 @@
               continue;
             }
 
-            // Use FIRST trip's recorded stop times to determine stop sequence (deterministic)
-            const firstTrip = tripsForThisShape[0];
+            // Use trip with MOST stops recorded (best data quality for stop sequence)
+            // Sort by stop count descending, so trips with more stops come first
+            const sortedTrips = tripsForThisShape.map(trip => ({
+              trip,
+              stopCount: recordedStopTimes[trip.tripId] ? recordedStopTimes[trip.tripId].length : 0
+            }))
+            .sort((a, b) => b.stopCount - a.stopCount);
+            
+            const firstTrip = sortedTrips[0]?.trip;
+            
+            if (!firstTrip) {
+              if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
+              continue;
+            }
+            
             const stopSequence = recordedStopTimes[firstTrip.tripId];
 
             if (!stopSequence || stopSequence.length < 2) {
-              console.warn(`[RTUtil] Shape ${shapeId}: first trip has no valid stop sequence`);
               if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
               continue;
             }
 
-            console.log(`[RTUtil]   Shape ${shapeId}: using stop sequence from trip ${firstTrip.tripId} (${stopSequence.length} stops)`);
-            console.time(`[RTUtil]     Segment building for form stops`);
 
             // Step 5: For each consecutive stop pair in the sequence, build/update segment
             const shapeSubshapes = [];
@@ -351,7 +378,7 @@
               // Check if segment already exists in master cache
               if (masterSegments[segmentKey]) {
                 segment = masterSegments[segmentKey];
-                console.log(`[RTUtil]     Reusing existing segment ${segmentKey} for route ${routeId}, shape ${shapeId}`);
+                //console.log(`[RTUtil]     Reusing existing segment ${segmentKey} for route ${routeId}, shape ${shapeId}`);
                 segment.addRoute(routeId);
                 segment.addShape(shapeId);
               } else {
@@ -359,7 +386,6 @@
                 const subshape = buildSubshapeGeometry(fromStopId, toStopId, shapeId, gtfsData, tripsForThisShape, stopDeltasByTrip);
                 
                 if (!subshape) {
-                  console.warn(`[RTUtil]     Could not build geometry for segment ${segmentKey}`);
                   continue;
                 }
 
@@ -377,19 +403,15 @@
                 
                 // Add to master cache for persistence
                 masterSegments[segmentKey] = segment;
-                console.log(`[RTUtil]     Created new segment ${segmentKey} for route ${routeId}, shape ${shapeId}, distance=${segment.distance.toFixed(3)} km`);
               }
 
               segmentsUsedForPlotting.add(segmentKey);
               shapeSubshapes.push(segmentKey);
             }
 
-            console.timeEnd(`[RTUtil]     Segment building for form stops`);
             segmentsByRoute[routeId].shapes[shapeId] = shapeSubshapes;
 
-            if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
           } catch (err) {
-            if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
             console.error(`[RTUtil] Error processing shape ${shapeId} for route ${routeId}:`, err);
           }
         }
@@ -397,11 +419,11 @@
         if (isFirstRoute) console.timeEnd(`[RTUtil] ROUTE ${routeId} (FIRST ROUTE TIMING)`);
       }
 
-      // Step 6: Aggregate travel times for segments from all trips
-      console.log(`[RTUtil] Aggregating travel times across ${Object.keys(stopDeltasByTrip).length} trips...`);
+      // Step 6: Aggregate travel times for segments from all trips (time-filtered only)
+      console.log(`[RTUtil] Aggregating travel times across ${Object.keys(filteredStopDeltasByTrip).length} time-filtered trips...`);
       
-      for (const tripId in stopDeltasByTrip) {
-        const stopDeltas = stopDeltasByTrip[tripId];
+      for (const tripId in filteredStopDeltasByTrip) {
+        const stopDeltas = filteredStopDeltasByTrip[tripId];
         const routeId = stopDeltas[0]?.routeId;
         
         // For each consecutive pair of stops in this trip
