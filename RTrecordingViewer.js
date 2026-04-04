@@ -11,7 +11,7 @@
 
   const TIME_ZONE = (window.APP_CONFIG && window.APP_CONFIG.timeZone) || 'UTC';
   const MAP_CONFIG = (window.APP_CONFIG && window.APP_CONFIG.map) || { center: [43.65, -79.38], zoom: 11 };
-  let TOP_N_ROUTES = 150; // Customizable via UI
+  let TOP_N_ROUTES = 10; // Customizable via UI
   let viewerWindow = null;
   let currentData = null;
   let stopsData = null;
@@ -1020,17 +1020,24 @@
         // Setup tab switching
         setupTabSwitching(doc);
         
-        // Initialize map eagerly so visualization works regardless of which tab user is on
-        // THIS IS CRITICAL: If we don't initialize the map here, visualizeSubshapesForBusiestRoutes()
-        // will be skipped in renderCharts() because mapInitialized will be false
-        if (!mapInitialized) {
+        // Setup OTP tab responsive height
+        setupOtpTabResizeListener(doc);
+        
+        // Initialize map eagerly ONLY if the map tab is currently active
+        // Otherwise, map will be initialized lazily when user clicks the Map tab
+        const mapTab = doc.querySelector('.tab[data-tab="map"]');
+        const isMapTabActive = mapTab && mapTab.classList.contains('active');
+        
+        if (isMapTabActive && !mapInitialized) {
           const mapReady = initializeMap(doc);
           if (mapReady) {
             mapInitialized = true;
-            console.log('[Viewer] Map initialized eagerly during data load');
+            console.log('[Viewer] Map initialized during data load (Map tab was active)');
           } else {
             console.warn('[Viewer] Failed to initialize map during data load');
           }
+        } else if (!isMapTabActive) {
+          console.log('[Viewer] Map initialization deferred (user is not on Map tab)');
         }
         
         // Update time filter range (initially all routes are selected)
@@ -1221,17 +1228,37 @@
     if (refreshHeatmapBtn) {
       refreshHeatmapBtn.addEventListener('click', async () => {
         console.log('[Viewer] Refresh button clicked - triggering visualization refresh...');
+        
+        // Read current values from UI
+        const topNRoutesInput = doc.getElementById('topNRoutes');
+        const heatmapMetricSelect = doc.getElementById('heatmapMetric');
+        
+        if (topNRoutesInput) {
+          const newTopN = parseInt(topNRoutesInput.value) || 150;
+          if (newTopN !== TOP_N_ROUTES) {
+            TOP_N_ROUTES = newTopN;
+            console.log('[Viewer] Updated Top N Routes to:', TOP_N_ROUTES);
+          }
+        }
+        
+        if (heatmapMetricSelect) {
+          const selectedMetric = heatmapMetricSelect.value;
+          console.log('[Viewer] Selected metric:', selectedMetric);
+          // TODO: Implement metric switching when RTUtil supports multiple metrics
+        }
+        
         console.log('[Viewer] Current state:', {
           leafletMapExists: !!leafletMap,
           mapInitialized: mapInitialized,
           leafletMapType: leafletMap ? leafletMap.constructor.name : 'null',
           currentZoom: leafletMap ? leafletMap.getZoom() : 'N/A',
-          currentCenter: leafletMap ? leafletMap.getCenter() : 'N/A'
+          currentCenter: leafletMap ? leafletMap.getCenter() : 'N/A',
+          topNRoutes: TOP_N_ROUTES
         });
         
         // Call the visualization function (it manages its own loading overlay)
         if (leafletMap && mapInitialized) {
-          console.log('[Viewer] Calling visualizeSubshapesForBusiestRoutes...');
+          console.log('[Viewer] Calling visualizeSubshapesForBusiestRoutes with TOP_N_ROUTES:', TOP_N_ROUTES);
           await visualizeSubshapesForBusiestRoutes();
           console.log('[Viewer] visualizeSubshapesForBusiestRoutes completed');
         } else {
@@ -1447,9 +1474,42 @@
     });
   }
 
-  function clamp(number, min, max) {
-    return Math.min(max, Math.max(min, number));
+  function updateOtpTabMaxHeight(doc) {
+    const otpTab = doc.getElementById('otpTab');
+    const header = doc.querySelector('.header');
+    const tabs = doc.querySelector('.tabs');
+    
+    if (!otpTab || !header || !tabs) return;
+    
+    // Calculate available height
+    const headerHeight = header.offsetHeight;
+    const tabsHeight = tabs.offsetHeight;
+    const topSpacing = headerHeight + tabsHeight;
+    const padding = 40; // top and bottom padding (20px each)
+    
+    // Max height = window height - header - tabs - padding
+    const maxHeight = window.innerHeight - topSpacing - padding;
+    
+    otpTab.style.maxHeight = `${Math.max(300, maxHeight)}px`; // Min 300px to ensure usability
+    
+    console.log('[Viewer] OTP Tab max-height updated:', {
+      windowHeight: window.innerHeight,
+      headerHeight,
+      tabsHeight,
+      maxHeight
+    });
   }
+
+  function setupOtpTabResizeListener(doc) {
+    // Update on initial load
+    updateOtpTabMaxHeight(doc);
+    
+    // Update on window resize
+    window.addEventListener('resize', () => {
+      updateOtpTabMaxHeight(doc);
+    });
+  }
+  
 
   function getHeatLayerOptionsForZoom(zoom) {
     // TUNING GUIDE: Adjust radius/blur vs. zoom here
@@ -1739,13 +1799,30 @@
     console.log('[DEBUG] ▶️ visualizeSubshapesForBusiestRoutes ENTRY');
     
     // Determine the correct document context (popup window or main page)
+    console.log('[DEBUG] 🔍 Document context decision:', {
+      viewerWindowExists: !!viewerWindow,
+      viewerWindowType: viewerWindow ? viewerWindow.constructor.name : 'null',
+      mainDocumentExists: !!document,
+      mainDocumentBody: !!document.body
+    });
+    
     const targetDoc = viewerWindow ? viewerWindow.document : document;
-    console.log('[DEBUG] Using document context:', viewerWindow ? 'popup window' : 'main window');
+    console.log('[DEBUG] ✓ Using document context:', viewerWindow ? 'popup window' : 'main window');
+    console.log('[DEBUG] 🔍 Target document state:', {
+      body: !!targetDoc.body,
+      head: !!targetDoc.head,
+      readyState: targetDoc.readyState
+    });
     
     // Show loading overlay in the correct document
     console.log('[DEBUG] 📍 Showing loading overlay...');
     const loadingOverlay = showSubshapeLoadingOverlay(targetDoc);
     console.log('[DEBUG] ✅ Loading overlay created:', !!loadingOverlay);
+
+    // CRITICAL: Add a small delay to allow browser to render the overlay before heavy work
+    // Without this, the overlay gets rendered and immediately hidden (race condition)
+    await new Promise(resolve => setTimeout(resolve, 100));
+    console.log('[DEBUG] ⏳ Rendered overlay, proceeding with visualization work...');
 
     try {
       if (!leafletMap) {
@@ -1901,12 +1978,33 @@
       const recordedStopTimes = {};
       const shapeIdToTripIdMap = {};  // Track which tripId we selected for each shapeId
       
+      // DEBUG: Check tripsByRoute structure BEFORE processing
+      console.log('[DEBUG] 🔍 tripsByRoute inspection:', {
+        topRouteIdsCount: topRouteIds.length,
+        sampleRouteId: topRouteIds[0],
+        tripsInFirstRoute: tripsByRoute[topRouteIds[0]] ? tripsByRoute[topRouteIds[0]].length : 'NOT FOUND',
+        sampleTrip: tripsByRoute[topRouteIds[0]]?.[0] ? {
+          keys: Object.keys(tripsByRoute[topRouteIds[0]][0]),
+          tripId: tripsByRoute[topRouteIds[0]][0].tripId,
+          vehicleId: tripsByRoute[topRouteIds[0]][0].vehicleId,
+          routeId: tripsByRoute[topRouteIds[0]][0].routeId,
+          stopCount: tripsByRoute[topRouteIds[0]][0].stopCount
+        } : 'NO TRIPS'
+      });
+      
       for (const routeId of topRouteIds) {
-        if (!tripsByRoute[routeId]) continue;
+        if (!tripsByRoute[routeId]) {
+          console.warn(`[DEBUG] ⚠️ tripsByRoute[${routeId}] is missing!`);
+          continue;
+        }
         
         // Group trips by shape_id
         const shapeMap = {};
         for (const trip of tripsByRoute[routeId]) {
+          if (!trip.tripId) {
+            console.warn(`[DEBUG] ⚠️ Trip in route ${routeId} has no tripId:`, trip);
+            continue;
+          }
           const shapeId = gtfsData.trips[trip.tripId]?.shape_id;
           if (!shapeId) continue;
           
@@ -1922,6 +2020,14 @@
           const selectedTrip = tripsForShape.reduce((max, t) => 
             (t.stopCount > max.stopCount) ? t : max
           );
+          
+          // DEBUG: Check if selectedTrip has tripId
+          if (!selectedTrip.tripId) {
+            console.error(`[DEBUG] ❌ CRITICAL: selectedTrip for shape ${shapeId} has NO tripId!`, {
+              selectedTripKeys: Object.keys(selectedTrip),
+              selectedTrip: selectedTrip
+            });
+          }
           
           // Track which tripId we selected for this shapeId (to avoid rescanning in utility)
           shapeIdToTripIdMap[shapeId] = selectedTrip.tripId;
@@ -1939,6 +2045,27 @@
       }
       
       console.log(`[Viewer] Built stop_times for ${Object.keys(recordedStopTimes).length} trips from recording data`);
+      
+      // DEBUG: Log details about recordedStopTimes
+      console.log('[DEBUG] recordedStopTimes structure:', {
+        totalTrips: Object.keys(recordedStopTimes).length,
+        sampleTrip: recordedStopTimes[Object.keys(recordedStopTimes)[0]] ? {
+          tripId: Object.keys(recordedStopTimes)[0],
+          stopCount: recordedStopTimes[Object.keys(recordedStopTimes)[0]].length
+        } : 'none',
+        allTripsEmpty: Object.keys(recordedStopTimes).every(tid => recordedStopTimes[tid].length === 0)
+      });
+      
+      // DEBUG: Log topRouteIds and shapeIdToTripIdMap
+      console.log('[DEBUG] Route selection:', {
+        topRouteIds: topRouteIds.slice(0, 5),
+        topRouteIdsCount: topRouteIds.length
+      });
+      
+      console.log('[DEBUG] shapeIdToTripIdMap sample:', {
+        totalShapes: Object.keys(shapeIdToTripIdMap).length,
+        sample: Object.entries(shapeIdToTripIdMap).slice(0, 3).map(([shapeId, tripId]) => ({ shapeId, tripId }))
+      });
 
       console.log('[Viewer] GTFS data prepared:', {
         trips: Object.keys(gtfsData.trips).length,
@@ -1959,16 +2086,21 @@
 
       // Call the utility function with separate recorded data and shape→trip mapping
       console.log('[DEBUG] 🔧 Calling RTUtil.visualizeTop10BusiestRoutes...');
+      console.log('[DEBUG] 📍 BEFORE RTUtil - window.subshapesLayer state:', {
+        exists: !!window.subshapesLayer,
+        layers: window.subshapesLayer ? window.subshapesLayer.getLayers().length : 'N/A',
+        onMap: window.subshapesLayer ? leafletMap.hasLayer(window.subshapesLayer) : 'N/A'
+      });
+      
       const result = await window.RTUtil.visualizeTop10BusiestRoutes(
         processedData.tripSummaries,
         processedData.routeStats,
         gtfsData,
         recordedStopTimes,
-        shapeIdToTripIdMap,
         leafletMap,
         processedData.stopDeltasByTrip,  // Pass full stop details for speed calculation
-        TOP_N_ROUTES,  // Pass the topN parameter
-        segmentsCache  // Pass the persistent segments cache
+        segmentsCache,  // Pass the persistent segments cache (masterSegments)
+        TOP_N_ROUTES  // Pass the topN parameter
       );
       console.log('[DEBUG] ✅ RTUtil call returned:', result?.metadata);
       
@@ -1976,8 +2108,18 @@
       if (window.subshapesLayer) {
         const shapeCount = window.subshapesLayer.getLayers().length;
         console.log('[DEBUG] 🔍 Subshapes layer contains', shapeCount, 'visual elements');
+        console.log('[DEBUG] 📍 AFTER RTUtil - window.subshapesLayer state:', {
+          exists: !!window.subshapesLayer,
+          layers: shapeCount,
+          onMap: leafletMap.hasLayer(window.subshapesLayer),
+          layerType: window.subshapesLayer.constructor.name
+        });
         if (shapeCount === 0) {
           console.warn('[DEBUG] ⚠️ WARNING: Subshapes layer is EMPTY! No shapes were rendered!');
+          console.warn('[DEBUG] 🔍 Possible causes:');
+          console.warn('[DEBUG]    1. RTUtil received empty recordedStopTimes:', Object.keys(recordedStopTimes).length === 0);
+          console.warn('[DEBUG]    2. RTUtil received empty topRouteIds:', topRouteIds.length === 0);
+          console.warn('[DEBUG]    3. RTUtil didn\'t add layers to window.subshapesLayer');
         }
       } else {
         console.error('[DEBUG] ❌ ERROR: window.subshapesLayer is undefined!');
@@ -2029,6 +2171,14 @@
     // Use provided document or fallback to global document
     const doc = targetDoc || document;
     console.log('[DEBUG] 📍 showSubshapeLoadingOverlay - using doc:', doc === document ? 'MAIN' : 'POPUP');
+    console.log('[DEBUG] 📍 targetDoc provided?', !!targetDoc, '| viewerWindow exists?', !!viewerWindow);
+    console.log('[DEBUG] 📍 doc.body exists?', !!doc.body, '| doc.head exists?', !!doc.head);
+    
+    // Check if document is in valid state
+    if (!doc.body) {
+      console.error('[DEBUG] ❌ CRITICAL: doc.body is null/undefined! Cannot append overlay!');
+      return null;
+    }
     
     // Create overlay element
     const overlay = doc.createElement('div');
@@ -2082,7 +2232,20 @@
 
     overlay.appendChild(spinner);
     overlay.appendChild(text);
-    doc.body.appendChild(overlay);
+    
+    try {
+      doc.body.appendChild(overlay);
+      console.log('[DEBUG] ✅ Loading overlay successfully appended to body');
+      console.log('[DEBUG] 📊 Overlay element:', {
+        id: overlay.id,
+        display: overlay.style.display,
+        zIndex: overlay.style.zIndex,
+        parentNode: overlay.parentNode ? overlay.parentNode.tagName : 'null'
+      });
+    } catch (e) {
+      console.error('[DEBUG] ❌ ERROR appending overlay to body:', e);
+      return null;
+    }
 
     console.log('[Viewer] Loading overlay shown in correct document context');
     return overlay;
@@ -2103,6 +2266,98 @@
       });
     }
   }
+
+  // STANDALONE TESTING FUNCTION - can be called from console to test loading blocker
+  // Usage: testLoadingBlocker() - will show for 3 seconds then auto-hide
+  window.testLoadingBlocker = function(targetDoc = null, durationMs = 3000) {
+    const doc = targetDoc || (viewerWindow ? viewerWindow.document : document);
+    console.log('[TEST] 📍 testLoadingBlocker - using doc context:', doc === document ? 'MAIN' : 'POPUP', 'for', durationMs, 'ms');
+    
+    // Create overlay element
+    const overlay = doc.createElement('div');
+    overlay.id = 'testLoadingOverlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      pointer-events: auto;
+    `;
+
+    // Create spinner
+    const spinner = doc.createElement('div');
+    spinner.style.cssText = `
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255, 255, 255, 0.3);
+      border-top: 5px solid #ffffff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    `;
+
+    // Add animation
+    const style = doc.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    doc.head.appendChild(style);
+
+    // Add loading text
+    const text = doc.createElement('div');
+    text.style.cssText = `
+      position: absolute;
+      color: white;
+      font-size: 16px;
+      font-weight: bold;
+      font-family: Arial, sans-serif;
+      margin-top: 80px;
+      text-align: center;
+    `;
+    text.textContent = `TEST MODE: Loading blocker (will hide in ${durationMs / 1000}s)`;
+
+    overlay.appendChild(spinner);
+    overlay.appendChild(text);
+    doc.body.appendChild(overlay);
+
+    console.log('[TEST] ✅ Loading blocker shown in DOM');
+    
+    // Auto-hide after specified duration
+    const timeoutId = setTimeout(() => {
+      if (overlay && overlay.parentNode) {
+        try {
+          overlay.parentNode.removeChild(overlay);
+          console.log('[TEST] ✅ Loading blocker auto-hidden after', durationMs, 'ms');
+        } catch (e) {
+          console.error('[TEST] ❌ Error removing overlay:', e);
+        }
+      }
+    }, durationMs);
+    
+    // Return object with manual hide capability
+    return {
+      overlay,
+      hide: () => {
+        clearTimeout(timeoutId);
+        if (overlay && overlay.parentNode) {
+          try {
+            overlay.parentNode.removeChild(overlay);
+            console.log('[TEST] ✅ Loading blocker manually hidden');
+          } catch (e) {
+            console.error('[TEST] ❌ Error removing overlay:', e);
+          }
+        }
+      }
+    };
+  };
 
   function updateStatusBadge(badgeEl, text, type) {
     badgeEl.textContent = text;
@@ -2477,16 +2732,20 @@
     // DISABLED: Old heatmap plotting - now using subshape visualization instead
     // updateHeatmap(filteredStopDeltas);
 
-    // Visualize subshapes for top 10 busiest routes (if map is ready)
+    // Visualize subshapes for top 10 busiest routes (only if map tab is active and ready)
     // Replaced heatmap with subshape visualization for better route-level insights
     // IMPORTANT: Await visualization to ensure loading overlay and all async work completes
+    const mapTab = doc.querySelector('.tab[data-tab="map"]');
+    const isMapTabActive = mapTab && mapTab.classList.contains('active');
+    
     console.log('[DEBUG] 🎯 Visualization check:', {
       leafletMapExists: !!leafletMap,
       mapInitialized,
-      shouldVisualize: leafletMap && mapInitialized
+      isMapTabActive,
+      shouldVisualize: leafletMap && mapInitialized && isMapTabActive
     });
     
-    if (leafletMap && mapInitialized) {
+    if (leafletMap && mapInitialized && isMapTabActive) {
       try {
         console.log('[DEBUG] ▶️ Starting visualization...');
         await visualizeSubshapesForBusiestRoutes();
@@ -2496,7 +2755,7 @@
       }
     } else {
       console.warn('[DEBUG] ⏭️ Skipping visualization:', {
-        reason: !leafletMap ? 'no leafletMap' : 'mapInitialized=false'
+        reason: !leafletMap ? 'no leafletMap' : (!mapInitialized ? 'mapInitialized=false' : 'map tab not active')
       });
     }
     

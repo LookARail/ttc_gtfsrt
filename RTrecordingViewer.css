@@ -100,7 +100,7 @@ body {
   min-height: 0;
 }
 
-/* Tabs */
+/* Tabs - Make sticky so always visible */
 .tabs {
   background: white;
   border-bottom: 2px solid #ddd;
@@ -108,6 +108,9 @@ body {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .tab {
@@ -132,14 +135,14 @@ body {
   border-bottom-color: #0078d4;
 }
 
-/* Charts Container with Vertical Scroll */
+/* Charts Container - No scroll here, let each tab handle scrolling independently */
 .charts-container {
   flex: 1;
-  overflow-y: auto;
-  padding: 20px;
+  overflow: hidden;
   min-height: 0;
   border: 0.2px solid grey;
-  max-height: calc(100vh - 72px); /* adjust 72px to match your header+tabs height */
+  display: flex;
+  flex-direction: column;
 }
 
 .tab-content {
@@ -149,7 +152,27 @@ body {
 .tab-content.active {
   display: flex;
   flex-direction: column;
-  flex:1;
+  flex: 1;
+  min-height: 0;
+}
+
+/* OTP Tab: only has vertical scroll when active */
+#otpTab.active {
+  overflow-y: auto;
+  padding: 20px;
+  /* max-height is set dynamically by JavaScript based on window size */
+}
+
+/* Map Tab: no scroll when active */
+#mapTab.active {
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Stats Tab: no scroll when active */
+#statsTab.active {
+  overflow: hidden;
+  padding: 20px;
 }
 
 .chart-wrapper {
@@ -410,13 +433,37 @@ button {
   border-bottom: 1px solid #ddd;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 20px;
   flex: 0 0 auto;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-group.top-n-group {
+  flex-shrink: 0;
+}
+
+.control-group.metric-group {
+  flex-shrink: 0;
+  margin-left: 12px;
 }
 
 .map-controls label {
   font-weight: 500;
   color: #555;
+  white-space: nowrap;
+}
+
+.map-controls input[type="number"] {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 80px;
 }
 
 .map-controls select {
@@ -426,9 +473,42 @@ button {
   font-size: 14px;
 }
 
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin-left: auto;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.refresh-btn:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
+}
+
+.refresh-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(102, 126, 234, 0.2);
+}
+
+.refresh-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .map-container {
   width: 100%;
-  min-height: 1000px;
-  background: #e5e5e5;
   flex: 1;
+  min-height: 750px;
+  background: #e5e5e5;  
 }

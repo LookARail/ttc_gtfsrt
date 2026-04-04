@@ -109,163 +109,136 @@
   }
 
   /**
-   * Generate subshapes for a given shape_id
-   * Subshapes represent segments between consecutive stops on a route
+   * Build subshape geometry and statistics for a segment
+   * Uses the first trip's recorded stop sequence (deterministic), builds shape coords and distance
    * 
-   * @param {string} shapeId - The shape_id to process
-   * @param {Object} gtfsData - GTFS data object containing stops, shapes
-   * @param {string} tripId - Pre-selected trip ID (viewer already selected this trip for this shape)
-   * @param {Object} recordedStopTimes - Recorded stop times data keyed by tripId
+   * @param {string} fromStopId - Origin stop
+   * @param {string} toStopId - Destination stop
+   * @param {string} shapeId - Shape ID to extract coordinates from
+   * @param {Object} gtfsData - GTFS data with stops and shapes
    * @param {Array} tripsForThisShape - All trips using this shape (for speed calculation)
-   * @param {Object} stopDeltasByTrip - Full stop data with actual times for each trip
-   * @returns {Promise<Array>} Array of subshape objects with {origin_station, destination_station, distance, coordinates, speedKmh, color}
+   * @param {Object} stopDeltasByTrip - Stop data with actual times for speed calculation
+   * @returns {Object} Subshape object with {origin_station, destination_station, distance, coordinates, speedKmh, color}
    */
-  async function generateSubshapesForShapeId(shapeId, gtfsData, tripId, recordedStopTimes, tripsForThisShape, stopDeltasByTrip) {
-    if (!gtfsData || !gtfsData.stops || !gtfsData.shapes) {
-      console.error('[RTUtil] GTFS data not loaded');
-      return [];
-    }
-
-    if (!tripId) {
-      console.warn(`[RTUtil] No tripId provided for shape_id: ${shapeId}`);
-      return [];
-    }
-
-    // Get the full shape
+  function buildSubshapeGeometry(fromStopId, toStopId, shapeId, gtfsData, tripsForThisShape, stopDeltasByTrip) {
     const fullShape = gtfsData.shapes[shapeId];
-    if (!fullShape || fullShape.length === 0) {
-      console.warn(`[RTUtil] No shape found for shape_id: ${shapeId}`);
-      return [];
-    }
-
-    const subshapes = [];
     const stops = gtfsData.stops;
     
-    // If we have recorded stop_times data available, use it
-    if (recordedStopTimes && recordedStopTimes[tripId]) {
-      const stopTimesForTrip = recordedStopTimes[tripId];
-      console.time(`[RTUtil]     Haversine calcs for ${shapeId} (${stopTimesForTrip.length - 1} stop pairs)`);
-      
-      for (let i = 0; i < stopTimesForTrip.length - 1; i++) {
-        const currentStopId = stopTimesForTrip[i].stop_id;
-        const nextStopId = stopTimesForTrip[i + 1].stop_id;
-        
-        const originStop = stops[currentStopId];
-        const destStop = stops[nextStopId];
+    if (!fullShape || !stops[fromStopId] || !stops[toStopId]) return null;
 
-        if (!originStop || !destStop) continue;
+    const originStop = stops[fromStopId];
+    const destStop = stops[toStopId];
 
-        let startIdx = findClosestShapePointIndex(originStop.stop_lat, originStop.stop_lon, fullShape);
-        if (startIdx < 0) startIdx = 0;
+    // Find closest shape points to stop locations
+    let startIdx = findClosestShapePointIndex(originStop.stop_lat, originStop.stop_lon, fullShape);
+    if (startIdx < 0) startIdx = 0;
 
-        let endIdx = findClosestShapePointIndex(destStop.stop_lat, destStop.stop_lon, fullShape);
-        if (endIdx < 0) endIdx = fullShape.length - 1;
+    let endIdx = findClosestShapePointIndex(destStop.stop_lat, destStop.stop_lon, fullShape);
+    if (endIdx < 0) endIdx = fullShape.length - 1;
 
-        // Ensure we're going forward
-        if (endIdx <= startIdx) {
-          endIdx = Math.min(startIdx + 1, fullShape.length - 1);
-        }
-
-        // Extract subshape coordinates
-        const subshapeCoords = [];
-        for (let j = startIdx; j <= endIdx; j++) {
-          subshapeCoords.push({
-            lat: fullShape[j].lat,
-            lon: fullShape[j].lon
-          });
-        }
-
-        // Calculate distance
-        let distance = 0;
-        const traveledValues = fullShape
-          .map(pt => pt.shape_dist_traveled)
-          .filter(val => val !== undefined && val !== null);
-        const hasValidDistanceData = traveledValues.some(val => val > 0);
-
-        if (hasValidDistanceData) {
-          const startDistTraveled = fullShape[startIdx].shape_dist_traveled || 0;
-          const endDistTraveled = fullShape[endIdx].shape_dist_traveled || 0;
-          distance = Math.abs(endDistTraveled - startDistTraveled);
-        } else {
-          const distanceMeters = getDistanceBetweenShapePoints(fullShape, startIdx, endIdx);
-          distance = distanceMeters * 0.001;  // Convert meters to km
-        }
-
-        // Calculate average speed for this segment across all trips using this shape
-        let speedKmh = 0;
-        if (tripsForThisShape && tripsForThisShape.length > 0 && stopDeltasByTrip) {
-          const travelTimes = [];
-          
-          for (const trip of tripsForThisShape) {
-            const stopDeltas = stopDeltasByTrip[trip.tripId];
-            if (!stopDeltas || stopDeltas.length === 0) continue;
-            
-            // Find this segment's stops in this trip
-            const originStopInTrip = stopDeltas.find(s => s.stopId === currentStopId);
-            const destStopInTrip = stopDeltas.find(s => s.stopId === nextStopId);
-            
-            // Calculate travel time if both stops have actual arrival data
-            if (originStopInTrip && destStopInTrip && originStopInTrip.actualEpoch && destStopInTrip.actualEpoch) {
-              const travelTimeSeconds = destStopInTrip.actualEpoch - originStopInTrip.actualEpoch;
-              if (travelTimeSeconds > 0) {
-                travelTimes.push(travelTimeSeconds);
-              }
-            }
-          }
-          
-          // Calculate average speed
-          if (travelTimes.length > 0 && distance > 0) {
-            const avgTravelTimeSeconds = travelTimes.reduce((a, b) => a + b, 0) / travelTimes.length;
-            const hours = avgTravelTimeSeconds / 3600;
-            speedKmh = distance / hours;
-            console.log(`[RTUtil] Segment ${currentStopId}->${nextStopId} (shape ${shapeId}): distance=${distance.toFixed(3)} km, avg_travel_time=${avgTravelTimeSeconds.toFixed(1)} sec (${(avgTravelTimeSeconds/60).toFixed(2)} min), speed=${speedKmh.toFixed(1)} km/h`);
-          } else if (distance > 0) {
-            console.log(`[RTUtil] Segment ${currentStopId}->${nextStopId} (shape ${shapeId}): distance=${distance.toFixed(3)} km, NO TRAVEL TIME DATA (${travelTimes.length} samples)`);
-          }
-        }
-
-        // Map speed to color (5-bin)
-        const color = getSpeedColor(speedKmh);
-
-        subshapes.push({
-          fromStopId: currentStopId,
-          toStopId: nextStopId,
-          origin_station: originStop.stop_name,
-          destination_station: destStop.stop_name,
-          distance: Number(distance.toFixed(3)),
-          coordinates: subshapeCoords,
-          speedKmh: Number(speedKmh.toFixed(1)),
-          color: color
-        });
-      }
-    } else {
+    // Ensure we're going forward
+    if (endIdx <= startIdx) {
+      endIdx = Math.min(startIdx + 1, fullShape.length - 1);
     }
 
-    return subshapes;
+    // Extract subshape coordinates
+    const subshapeCoords = [];
+    for (let j = startIdx; j <= endIdx; j++) {
+      subshapeCoords.push({
+        lat: fullShape[j].lat,
+        lon: fullShape[j].lon
+      });
+    }
+
+    // Calculate distance
+    let distance = 0;
+    const traveledValues = fullShape
+      .map(pt => pt.shape_dist_traveled)
+      .filter(val => val !== undefined && val !== null);
+    const hasValidDistanceData = traveledValues.some(val => val > 0);
+
+    if (hasValidDistanceData) {
+      const startDistTraveled = fullShape[startIdx].shape_dist_traveled || 0;
+      const endDistTraveled = fullShape[endIdx].shape_dist_traveled || 0;
+      distance = Math.abs(endDistTraveled - startDistTraveled);
+    } else {
+      const distanceMeters = getDistanceBetweenShapePoints(fullShape, startIdx, endIdx);
+      distance = distanceMeters * 0.001;  // Convert meters to km
+    }
+
+    // Calculate average speed for this segment across all trips using this shape
+    let speedKmh = 0;
+    if (tripsForThisShape && tripsForThisShape.length > 0 && stopDeltasByTrip) {
+      const travelTimes = [];
+      
+      for (const trip of tripsForThisShape) {
+        const stopDeltas = stopDeltasByTrip[trip.tripId];
+        if (!stopDeltas || stopDeltas.length === 0) continue;
+        
+        // Find this segment's stops in this trip
+        const originStopInTrip = stopDeltas.find(s => s.stopId === fromStopId);
+        const destStopInTrip = stopDeltas.find(s => s.stopId === toStopId);
+        
+        // Calculate travel time if both stops have actual arrival data
+        if (originStopInTrip && destStopInTrip && originStopInTrip.actualEpoch && destStopInTrip.actualEpoch) {
+          const travelTimeSeconds = destStopInTrip.actualEpoch - originStopInTrip.actualEpoch;
+          if (travelTimeSeconds > 0) {
+            travelTimes.push(travelTimeSeconds);
+          }
+        }
+      }
+      
+      // Calculate average speed
+      if (travelTimes.length > 0 && distance > 0) {
+        const avgTravelTimeSeconds = travelTimes.reduce((a, b) => a + b, 0) / travelTimes.length;
+        const hours = avgTravelTimeSeconds / 3600;
+        speedKmh = distance / hours;
+      }
+    }
+
+    // Map speed to color (5-bin)
+    const color = getSpeedColor(speedKmh);
+
+    return {
+      fromStopId,
+      toStopId,
+      origin_station: originStop.stop_name,
+      destination_station: destStop.stop_name,
+      distance: Number(distance.toFixed(3)),
+      coordinates: subshapeCoords,
+      speedKmh: Number(speedKmh.toFixed(1)),
+      color
+    };
   }
 
   /**
-   * Generate and visualize top 10 busiest routes with subshapes on map
-   * This function is called from RTRecordingViewer to populate the map
+   * Generate and visualize top 10 busiest routes with segments on map
+   * Builds segments deterministically from first trip's recorded stop sequence
+   * Accumulates travel time statistics across all trips
    * 
    * @param {Array} tripSummaries - Array of trip summary objects from RTRecordingViewer
    * @param {Object} routeStats - Route statistics object with tripHours data
-   * @param {Object} gtfsData - GTFS data object (trips, shapes, stops, routes, shapeRouteMap)
-   * @param {Object} recordedStopTimes - Recorded stop times data keyed by tripId
-   * @param {Object} shapeIdToTripIdMap - Pre-selected tripId for each shapeId (built by viewer)
+   * @param {Object} gtfsData - GTFS data object (trips, shapes, stops, routes)
+   * @param {Object} recordedStopTimes - Recorded stop times data keyed by tripId (stop sequence per trip)
    * @param {Object} leafletMap - Leaflet map instance
-   * @param {Object} stopDeltasByTrip - Full stop data with actual times for speed calculation
-   * @returns {Promise<Object>} Object with { topRoutes, subshapesData, metadata }
+   * @param {Object} stopDeltasByTrip - Full stop data with actual times for travel time calculation
+   * @param {Object} masterSegments - Persistent segment cache across calls (cleared only on data reload)
+   * @returns {Promise<Object>} Object with { topRoutes, segmentsByRoute, metadata }
    */
-  async function visualizeTop10BusiestRoutes(tripSummaries, routeStats, gtfsData, recordedStopTimes, shapeIdToTripIdMap, leafletMap, stopDeltasByTrip, topN = 10, segmentsCache = {}) {
+  async function visualizeTop10BusiestRoutes(tripSummaries, routeStats, gtfsData, recordedStopTimes, leafletMap, stopDeltasByTrip, masterSegments, topN = 10) {
     if (!leafletMap) {
       console.error('[RTUtil] Map not available');
-      return { topRoutes: [], subshapesData: {}, metadata: { error: 'Map not available' } };
+      return { topRoutes: [], segmentsByRoute: {}, metadata: { error: 'Map not available' } };
     }
 
     if (!gtfsData || !gtfsData.trips || !gtfsData.shapes) {
       console.error('[RTUtil] GTFS data not loaded');
-      return { topRoutes: [], subshapesData: {}, metadata: { error: 'GTFS data not loaded' } };
+      return { topRoutes: [], segmentsByRoute: {}, metadata: { error: 'GTFS data not loaded' } };
+    }
+
+    if (!masterSegments) {
+      console.error('[RTUtil] masterSegments not provided');
+      return { topRoutes: [], segmentsByRoute: {}, metadata: { error: 'masterSegments not available' } };
     }
 
     try {
@@ -286,10 +259,10 @@
       // Verify Leaflet is available
       if (typeof L === 'undefined') {
         console.error('[RTUtil] Leaflet (L) is not defined!');
-        return { topRoutes: [], subshapesData: {}, metadata: { error: 'Leaflet not available' } };
+        return { topRoutes: [], segmentsByRoute: {}, metadata: { error: 'Leaflet not available' } };
       }
       
-window.subshapesLayer = L.layerGroup();
+      window.subshapesLayer = L.layerGroup();
       console.log('[RTUtil] Created new subshapes layer');
 
       // Step 2: Calculate top 10 busiest routes by trip-hours
@@ -314,18 +287,17 @@ window.subshapesLayer = L.layerGroup();
 
       console.log(`[RTUtil] Top ${topN} busiest routes:`, topRoutes.map(r => ({ routeId: r.routeId, tripHours: r.tripHours.toFixed(2) })));
 
-      // Step 3: Build segments (deduplicated station-to-station corridors)
-      const segmentsMap = {}; // Key: fromStopId_toStopId -> Segment
-      const subshapesData = {};
-      const shapeRouteMap = gtfsData.shapeRouteMap || {};
+      // Step 3: Track segments used for these top routes for visualization
+      const segmentsByRoute = {};
       const trips = gtfsData.trips;
+      const segmentsUsedForPlotting = new Set();  // Track which segments to plot
 
       for (const routeData of topRoutes) {
         const routeId = routeData.routeId;
         const isFirstRoute = routeData === topRoutes[0];
         if (isFirstRoute) console.time(`[RTUtil] ROUTE ${routeId} (FIRST ROUTE TIMING)`);
         
-        subshapesData[routeId] = {
+        segmentsByRoute[routeId] = {
           routeId,
           tripHours: routeData.tripHours,
           tripCount: routeData.tripCount,
@@ -342,57 +314,56 @@ window.subshapesLayer = L.layerGroup();
 
         console.log(`[RTUtil] Route ${routeId}: ${tripsForRoute.length} trips, ${uniqueShapeIds.length} unique shapes`);
 
-        // Step 4: Generate subshapes for each unique shape and deduplicate into segments
+        // Step 4: For each shape, use first trip's stop sequence to build segments
         for (const shapeId of uniqueShapeIds) {
           if (isFirstRoute) console.time(`[RTUtil]   Shape ${shapeId}`);
           try {
-            // Get pre-selected tripId from viewer (avoids rescanning)
-            const tripId = shapeIdToTripIdMap[shapeId];
-            
             // Filter trips for this specific shape
             const tripsForThisShape = tripsForRoute.filter(t => t.shape_id === shapeId);
             
-            const subshapes = await generateSubshapesForShapeId(
-              shapeId, 
-              gtfsData, 
-              tripId, 
-              recordedStopTimes, 
-              tripsForThisShape,
-              stopDeltasByTrip
-            );
-            if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
-            subshapesData[routeId].shapes[shapeId] = subshapes;
+            if (tripsForThisShape.length === 0) {
+              if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
+              continue;
+            }
 
-            // Step 5: Deduplicate subshapes into segments
-            for (const subshape of subshapes) {
-              const segmentKey = `${subshape.fromStopId}_${subshape.toStopId}`;
+            // Use FIRST trip's recorded stop times to determine stop sequence (deterministic)
+            const firstTrip = tripsForThisShape[0];
+            const stopSequence = recordedStopTimes[firstTrip.tripId];
+
+            if (!stopSequence || stopSequence.length < 2) {
+              console.warn(`[RTUtil] Shape ${shapeId}: first trip has no valid stop sequence`);
+              if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
+              continue;
+            }
+
+            console.log(`[RTUtil]   Shape ${shapeId}: using stop sequence from trip ${firstTrip.tripId} (${stopSequence.length} stops)`);
+            console.time(`[RTUtil]     Segment building for form stops`);
+
+            // Step 5: For each consecutive stop pair in the sequence, build/update segment
+            const shapeSubshapes = [];
+            for (let i = 0; i < stopSequence.length - 1; i++) {
+              const fromStopId = stopSequence[i].stop_id;
+              const toStopId = stopSequence[i + 1].stop_id;
+              const segmentKey = `${fromStopId}_${toStopId}`;
+
               let segment = null;
-              
-              // First check if segment already exists in cache (from previous refresh/initialization)
-              if (segmentsCache && segmentsCache[segmentKey]) {
-                segment = segmentsCache[segmentKey];
-                console.log(`[RTUtil] Reusing cached segment ${segmentKey} for route ${routeId}, shape ${shapeId}`);
-                // Update the segment's parent shapes and routes
-                segment.addRoute(routeId);
-                segment.addShape(shapeId);
-              } else if (segmentsMap[segmentKey]) {
-                // Segment exists in current 'segmentsMap, check distance tolerance
-                segment = segmentsMap[segmentKey];
-                const distanceDiff = Math.abs(segment.distance - subshape.distance) / segment.distance;
-                
-                if (distanceDiff > 0.05) {
-                  // Distance difference >5%, log warning
-                  console.warn(
-                    `[RTUtil] Distance mismatch for segment ${subshape.fromStationId}->${subshape.toStationId}: ` +
-                    `existing=${segment.distance.toFixed(3)}km vs new=${subshape.distance.toFixed(3)}km (diff=${(distanceDiff*100).toFixed(1)}%)`
-                  );
-                }
-                
-                // Add route and shape to existing segment
+
+              // Check if segment already exists in master cache
+              if (masterSegments[segmentKey]) {
+                segment = masterSegments[segmentKey];
+                console.log(`[RTUtil]     Reusing existing segment ${segmentKey} for route ${routeId}, shape ${shapeId}`);
                 segment.addRoute(routeId);
                 segment.addShape(shapeId);
               } else {
-                // New segment, create it
+                // Build new segment: get geometry from shape
+                const subshape = buildSubshapeGeometry(fromStopId, toStopId, shapeId, gtfsData, tripsForThisShape, stopDeltasByTrip);
+                
+                if (!subshape) {
+                  console.warn(`[RTUtil]     Could not build geometry for segment ${segmentKey}`);
+                  continue;
+                }
+
+                // Create new segment with geometry
                 segment = new Segment(
                   subshape.fromStopId,
                   subshape.toStopId,
@@ -403,14 +374,20 @@ window.subshapesLayer = L.layerGroup();
                 );
                 segment.addRoute(routeId);
                 segment.addShape(shapeId);
-                segmentsMap[segmentKey] = segment;
                 
-                // Also add to cache for persistence across refreshes
-                if (segmentsCache) {
-                  segmentsCache[segmentKey] = segment;
-                }
+                // Add to master cache for persistence
+                masterSegments[segmentKey] = segment;
+                console.log(`[RTUtil]     Created new segment ${segmentKey} for route ${routeId}, shape ${shapeId}, distance=${segment.distance.toFixed(3)} km`);
               }
+
+              segmentsUsedForPlotting.add(segmentKey);
+              shapeSubshapes.push(segmentKey);
             }
+
+            console.timeEnd(`[RTUtil]     Segment building for form stops`);
+            segmentsByRoute[routeId].shapes[shapeId] = shapeSubshapes;
+
+            if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
           } catch (err) {
             if (isFirstRoute) console.timeEnd(`[RTUtil]   Shape ${shapeId}`);
             console.error(`[RTUtil] Error processing shape ${shapeId} for route ${routeId}:`, err);
@@ -420,8 +397,8 @@ window.subshapesLayer = L.layerGroup();
         if (isFirstRoute) console.timeEnd(`[RTUtil] ROUTE ${routeId} (FIRST ROUTE TIMING)`);
       }
 
-      // Step 6: Aggregate travel times for each segment from all trips
-      console.log(`[RTUtil] Processing ${Object.keys(segmentsMap).length} unique segments...`);
+      // Step 6: Aggregate travel times for segments from all trips
+      console.log(`[RTUtil] Aggregating travel times across ${Object.keys(stopDeltasByTrip).length} trips...`);
       
       for (const tripId in stopDeltasByTrip) {
         const stopDeltas = stopDeltasByTrip[tripId];
@@ -435,7 +412,7 @@ window.subshapesLayer = L.layerGroup();
           if (!originStop.actualEpoch || !destStop.actualEpoch) continue;
           
           const segmentKey = `${originStop.stopId}_${destStop.stopId}`;
-          const segment = segmentsMap[segmentKey];
+          const segment = masterSegments[segmentKey];
           
           if (segment) {
             const travelTimeSeconds = destStop.actualEpoch - originStop.actualEpoch;
@@ -446,11 +423,13 @@ window.subshapesLayer = L.layerGroup();
         }
       }
 
-      // Step 7: Plot all segments on map
-      console.log(`[RTUtil] Plotting ${Object.keys(segmentsMap).length} unique segments...`);
+      // Step 7: Plot all segments in segmentsUsedForPlotting
+      console.log(`[RTUtil] Plotting ${segmentsUsedForPlotting.size} unique segments on map...`);
       
-      for (const segmentKey in segmentsMap) {
-        const segment = segmentsMap[segmentKey];
+      for (const segmentKey of segmentsUsedForPlotting) {
+        const segment = masterSegments[segmentKey];
+        if (!segment) continue;
+
         const polylineCoords = segment.coordinates.map(p => [p.lat, p.lon]);
         
         // Calculate average speed and color
@@ -489,7 +468,7 @@ window.subshapesLayer = L.layerGroup();
       try {
         window.subshapesLayer.addTo(leafletMap);
         console.log('[RTUtil] Subshapes layer added to map successfully');
-        console.log('[RTUtil] Total polylines in layer:', Object.keys(segmentsMap).length);
+        console.log('[RTUtil] Total polylines plotted:', segmentsUsedForPlotting.size);
         
         // Verify the layer is on the map
         if (leafletMap.hasLayer(window.subshapesLayer)) {
@@ -502,22 +481,21 @@ window.subshapesLayer = L.layerGroup();
       }
 
       console.timeEnd('[RTUtil] TOTAL VISUALIZATION TIME');
-      console.log(`[RTUtil] Visualization complete. Total routes: ${topRoutes.length}, Total shape groups: ${Object.keys(subshapesData).length}, Total segments: ${Object.keys(segmentsMap).length}`);
+      console.log(`[RTUtil] Visualization complete. Total routes: ${topRoutes.length}, Total segments in master cache: ${Object.keys(masterSegments).length}, Segments plotted: ${segmentsUsedForPlotting.size}`);
 
       return {
         topRoutes,
-        subshapesData,
+        segmentsByRoute,
         metadata: {
           timestamp: new Date().toISOString(),
-          totalSubshapesPlotted: Object.values(subshapesData).reduce((sum, route) => 
-            sum + Object.values(route.shapes).reduce((ssum, shapeList) => ssum + shapeList.length, 0), 0
-          )
+          totalSegmentsPlotted: segmentsUsedForPlotting.size,
+          totalSegmentsInCache: Object.keys(masterSegments).length
         }
       };
 
     } catch (err) {
       console.error('[RTUtil] Error in visualizeTop10BusiestRoutes:', err);
-      return { topRoutes: [], subshapesData: {}, metadata: { error: err.message } };
+      return { topRoutes: [], segmentsByRoute: {}, metadata: { error: err.message } };
     }
   }
 
@@ -584,7 +562,7 @@ window.subshapesLayer = L.layerGroup();
       haversineDistance,
       findClosestShapePointIndex,
       getDistanceBetweenShapePoints,
-      generateSubshapesForShapeId,
+      buildSubshapeGeometry,
       visualizeTop10BusiestRoutes,
       getRouteColor,
       clearSubshapes

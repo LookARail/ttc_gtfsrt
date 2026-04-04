@@ -111,18 +111,25 @@
           
           <div id="mapTab" class="tab-content">
             <div class="map-controls">
-              <div class="control-group">
+              <div class="control-group top-n-group">
                 <label for="topNRoutes">Top N Routes:</label>
                 <input type="number" id="topNRoutes" min="1" max="200" value="150" />
-                <button id="refreshHeatmapBtn" style="margin-left: 8px; padding: 6px 12px; cursor: pointer;">🔄 Refresh</button>
               </div>
-              <div class="control-group">
+              <div class="control-group metric-group">
                 <label for="heatmapMetric">Metric:</label>
                 <select id="heatmapMetric">
                   <option value="incrementalDelay">Incremental Delay at Stops</option>
                   <option value="travelTime">Travel Time (All Routes)</option>
                 </select>
               </div>
+              <button id="refreshHeatmapBtn" class="refresh-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0114.85-3.36M20.49 15a9 9 0 01-14.85 3.36"></path>
+                </svg>
+                Refresh
+              </button>
             </div>
             <div id="heatmapLegend" class="heatmap-legend"></div>
             <div id="heatmapContainer" class="map-container"></div>
