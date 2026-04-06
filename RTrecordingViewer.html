@@ -65,8 +65,12 @@
             </div>
           </div>
           <div class="range-slider-container">
-            <input type="range" id="timeSliderStart" class="range-slider" min="0" max="100" value="0" disabled />
-            <input type="range" id="timeSliderEnd" class="range-slider" min="0" max="100" value="100" disabled />
+            <!-- Dummy slider: just the background track, disabled -->
+            <input type="range" id="timeSliderDummy" class="range-slider range-slider-dummy" min="0" max="100" value="50" disabled />
+            <!-- Start slider: thumb only, positioned on top -->
+            <input type="range" id="timeSliderStart" class="range-slider range-slider-thumb-only" min="0" max="100" value="0" disabled />
+            <!-- End slider: thumb only, positioned on top -->
+            <input type="range" id="timeSliderEnd" class="range-slider range-slider-thumb-only" min="0" max="100" value="100" disabled />
           </div>
           <div id="timeRangeInfo" class="time-range-info">Available range: —</div>
         </div>
@@ -122,8 +126,9 @@
               <div class="control-group metric-group">
                 <label for="heatmapMetric">Metric:</label>
                 <select id="heatmapMetric">
-                  <option value="incrementalDelay">Incremental Delay at Stops</option>
-                  <option value="travelTime">Travel Time (All Routes)</option>
+                  <option value="travelTime">Travel Time (Speed)</option>
+                  <option value="variance">Travel Time Variance</option>
+                  <option value="adherence">Travel Time Adherence</option>
                 </select>
               </div>
               <button id="refreshHeatmapBtn" class="refresh-btn">

@@ -435,6 +435,44 @@ button {
   pointer-events: none;
 }
 
+/* Dummy slider: shows background track only, no interaction */
+.range-slider-dummy {
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Hide thumb for dummy slider */
+.range-slider-dummy::-webkit-slider-thumb {
+  display: none;
+}
+
+.range-slider-dummy::-moz-range-thumb {
+  display: none;
+}
+
+/* Thumb-only sliders: hide track, show only thumbs */
+.range-slider-thumb-only {
+  background: transparent;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Hide track for thumb-only sliders (webkit) */
+.range-slider-thumb-only::-webkit-slider-runnable-track {
+  background: transparent;
+  border: none;
+}
+
+/* Hide track for thumb-only sliders (firefox) */
+.range-slider-thumb-only::-moz-range-track {
+  background: transparent;
+  border: none;
+}
+
+.range-slider-thumb-only::-moz-range-progress {
+  background: transparent;
+}
+
 /* Make sure sliders can be interacted with */
 .range-slider::-webkit-slider-thumb {
   pointer-events: auto;
@@ -447,6 +485,16 @@ button {
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   transition: background 0.2s ease;
+}
+
+/* Start slider: higher z-index for better interaction */
+#timeSliderStart::-webkit-slider-thumb {
+  z-index: 5;
+}
+
+/* End slider: slightly lower z-index */
+#timeSliderEnd::-webkit-slider-thumb {
+  z-index: 4;
 }
 
 .range-slider::-webkit-slider-thumb:hover {
@@ -465,6 +513,16 @@ button {
   transition: background 0.2s ease;
 }
 
+/* Start slider: higher z-index for better interaction */
+#timeSliderStart::-moz-range-thumb {
+  z-index: 5;
+}
+
+/* End slider: slightly lower z-index */
+#timeSliderEnd::-moz-range-thumb {
+  z-index: 4;
+}
+
 .range-slider::-moz-range-thumb:hover {
   background: #005a9e;
 }
@@ -472,16 +530,6 @@ button {
 .range-slider::-moz-range-track {
   background: transparent;
   border: none;
-}
-
-/* Start slider on top for better interaction */
-#timeSliderStart {
-  z-index: 4;
-}
-
-/* End slider below start slider */
-#timeSliderEnd {
-  z-index: 3;
 }
 
 .range-slider:disabled {

@@ -11,7 +11,7 @@
 
   const TIME_ZONE = (window.APP_CONFIG && window.APP_CONFIG.timeZone) || 'UTC';
   const MAP_CONFIG = (window.APP_CONFIG && window.APP_CONFIG.map) || { center: [43.65, -79.38], zoom: 11 };
-  let TOP_N_ROUTES = 10; // Customizable via UI - this is the source of truth
+  let TOP_N_ROUTES = 50; // Customizable via UI - this is the source of truth
   let viewerWindow = null;
   let currentData = null;
   let stopsData = null;
@@ -46,7 +46,7 @@
   let leafletMap = null;
   let mapInitialized = false;
   let cachedHeatmapPoints = null;
-  let segmentsCache = {}; // Global cache for segments: key = "fromStopId_toStopId" -> Segment object
+  let masterSegments = {}; // Global cache for segments: key = "fromStopId_toStopId" -> Segment object. Persists across filter changes.
 
   // ============================================================================
   // TIMEZONE & FORMATTING UTILITIES
@@ -226,39 +226,60 @@
       return [];
     }
     const available = [];
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1); // Start from tomorrow
-    
-    // Scan in batches of 10, going backwards from tomorrow
-    for (let batchStart = 0; batchStart < 60; batchStart += 10) {
-      const batchPromises = [];
-      const batchDates = [];
-      
-      for (let i = 0; i < 10; i++) {
-        const dayOffset = batchStart + i;
-        const date = new Date(tomorrow);
+    const today = new Date();
+    const MAX_DAYS = 60;
+    const BATCH_SIZE = 10; // user requested batch size
+    const MAX_BATCHES = Math.ceil(MAX_DAYS / BATCH_SIZE); // should be 6
+    const MAX_BATCH_FAILURES = 5; // stop if a batch has >= this many failures
+
+    console.log(`[Viewer] Starting batched recording scan from today (${today.toISOString().split('T')[0]}) backward — batchSize=${BATCH_SIZE}, maxDays=${MAX_DAYS}`);
+
+    // Scan in batches of BATCH_SIZE days in parallel; stop when a batch has >= MAX_BATCH_FAILURES misses
+    for (let batch = 0; batch < MAX_BATCHES; batch++) {
+      const startOffset = batch * BATCH_SIZE;
+      const dates = [];
+
+      for (let i = 0; i < BATCH_SIZE; i++) {
+        const dayOffset = startOffset + i;
+        if (dayOffset >= MAX_DAYS) break;
+        const date = new Date(today);
         date.setDate(date.getDate() - dayOffset);
         const dateStr = date.toISOString().split('T')[0];
-        
-        batchDates.push(dateStr);
-        batchPromises.push(
-          fetch(`${GITHUB_RAW_BASE}/recordedRTData/${dateStr}.json`, { method: 'HEAD' })
-            .then(resp => resp.ok ? dateStr : null)
-            .catch(() => null)
-        );
+        dates.push({ dateStr, dayOffset });
       }
-      
-      const results = await Promise.all(batchPromises);
-      const foundInBatch = results.filter(r => r !== null);
-      available.push(...foundInBatch);
-      
-      // Stop if entire batch is empty
-      if (foundInBatch.length === 0) {
-        console.log(`[Viewer] No recordings found in batch ${batchStart}-${batchStart + 9}, stopping scan`);
+
+      if (dates.length === 0) break;
+
+      console.log(`[Viewer] Scanning batch ${batch + 1}/${MAX_BATCHES} for dates ${dates[0].dateStr} .. ${dates[dates.length - 1].dateStr}`);
+
+      // Fire HEAD requests in parallel for this batch
+      const promises = dates.map(d =>
+        fetch(`${GITHUB_RAW_BASE}/recordedRTData/${d.dateStr}.json`, { method: 'HEAD', cache: 'no-store' })
+          .then(resp => ({ dateStr: d.dateStr, ok: resp.ok }))
+          .catch(err => ({ dateStr: d.dateStr, ok: false, err }))
+      );
+
+      const results = await Promise.all(promises);
+
+      let batchFailures = 0;
+      for (const r of results) {
+        if (r.ok) {
+          available.push(r.dateStr);
+          console.log(`[Viewer] ✓ Found recording for ${r.dateStr}`);
+        } else {
+          batchFailures++;
+          console.log(`[Viewer] ✗ No recording for ${r.dateStr} (batch failures: ${batchFailures}/${MAX_BATCH_FAILURES})`);
+        }
+      }
+
+      if (batchFailures >= MAX_BATCH_FAILURES) {
+        console.log(`[Viewer] Stopping scan: batch ${batch + 1} had ${batchFailures} failures (>= ${MAX_BATCH_FAILURES})`);
         break;
       }
+      // otherwise continue to next batch until MAX_DAYS exhausted
     }
-    
+
+    console.log(`[Viewer] Recording scan complete: found ${available.length} dates`);
     return available.sort().reverse(); // Newest first
   }
 
@@ -1052,6 +1073,10 @@
         // Setup OTP tab responsive height
         setupOtpTabResizeListener(doc);
         
+        // Clear master segment cache when loading new data to prevent old segments from showing
+        masterSegments = {};
+        console.log('[Viewer] Cleared master segment cache for new data load');
+        
         // Initialize map eagerly ONLY if the map tab is currently active
         // Otherwise, map will be initialized lazily when user clicks the Map tab
         const mapTab = doc.querySelector('.tab[data-tab="map"]');
@@ -1124,16 +1149,18 @@
       }
     });
     
-    applyFilterBtn.addEventListener('click', async () => {
+    // Helper function: Read filter state from DOM and apply to globals
+    function readAndApplyFilters(doc) {
+      // Read route filter from DOM checkboxes
       const checkboxes = doc.querySelectorAll('.route-filter input[type="checkbox"]:checked');
       selectedRouteIds.clear();
       checkboxes.forEach(cb => selectedRouteIds.add(cb.value));
       
-      // Read time filter values from sliders and compute epoch range
+      // Read time filter from slider DOM and compute epoch range
       const timeSliderStart = doc.getElementById('timeSliderStart');
       const timeSliderEnd = doc.getElementById('timeSliderEnd');
 
-      if (!timeSliderStart.disabled && !timeSliderEnd.disabled && timeFilterBaseDay != null) {
+      if (timeSliderStart && timeSliderEnd && !timeSliderStart.disabled && !timeSliderEnd.disabled && timeFilterBaseDay != null) {
         const startEpoch = sliderValueToSeconds(parseInt(timeSliderStart.value), timeFilterBaseDay);
         const endEpoch = sliderValueToSeconds(parseInt(timeSliderEnd.value), timeFilterBaseDay);
         
@@ -1152,6 +1179,11 @@
         timeFilterStartEpoch = null;
         timeFilterEndEpoch = null;
       }
+    }
+    
+    applyFilterBtn.addEventListener('click', async () => {
+      // Read current filter state from DOM and apply globally
+      readAndApplyFilters(doc);
       
       console.log('[Viewer] Apply filter clicked:', {
         selectedCount: selectedRouteIds.size,
@@ -1166,7 +1198,7 @@
         console.log('[Viewer] Apply filter loading indicator shown');
       }
       
-      // Render charts with current route and time filters
+      // Render charts (which includes heatmaps + statistics)
       try {
         console.log('[Viewer] Re-rendering charts with applied filters...');
         await renderCharts(doc);
@@ -1241,7 +1273,7 @@
       refreshHeatmapBtn.addEventListener('click', async () => {
         console.log('[Viewer] Refresh button clicked - triggering visualization refresh...');
         
-        // Read current values from UI
+        // Update UI inputs if needed
         const topNRoutesInput = doc.getElementById('topNRoutes');
         const heatmapMetricSelect = doc.getElementById('heatmapMetric');
         
@@ -1256,8 +1288,16 @@
         if (heatmapMetricSelect) {
           const selectedMetric = heatmapMetricSelect.value;
           console.log('[Viewer] Selected metric:', selectedMetric);
-          // TODO: Implement metric switching when RTUtil supports multiple metrics
         }
+        
+        // Read current filter state from DOM and apply globally (same as Apply Filter)
+        readAndApplyFilters(doc);
+        
+        console.log('[Viewer] Refresh: filters re-read from DOM', {
+          selectedCount: selectedRouteIds.size,
+          selectedRoutes: Array.from(selectedRouteIds),
+          timeFilterEpoch: { start: timeFilterStartEpoch, end: timeFilterEndEpoch }
+        });
         
         // Show loading indicator
         const loadingIndicator = doc.getElementById('loadingIndicator');
@@ -1266,13 +1306,13 @@
           console.log('[Viewer] Refresh loading indicator shown');
         }
         
-        // Re-render charts with current filters applied (this will refresh the heatmap with time filter)
+        // Update heatmaps only (no charts/stats, just visualization)
         try {
-          console.log('[Viewer] Refreshing visualization with current filters...');
-          await renderCharts(doc);
-          console.log('[Viewer] visualization refresh complete');
+          console.log('[Viewer] Refreshing heatmap visualization...');
+          await updateHeatmaps(doc, processedData.tripSummaries);
+          console.log('[Viewer] Heatmap visualization refresh complete');
         } catch (err) {
-          console.error('[Viewer] Error during refresh:', err);
+          console.error('[Viewer] Error during heatmap refresh:', err);
         } finally {
           if (loadingIndicator) {
             loadingIndicator.style.display = 'none';
@@ -1602,6 +1642,7 @@
 
     legend.onAdd = function() {
       const div = L.DomUtil.create('div', 'heatmap-legend');
+      div.id = 'heatmapLegendContent'; // Give it an ID so we can update it
       div.style.cssText = `
         background-color: white;
         padding: 12px;
@@ -1612,48 +1653,87 @@
         max-width: 200px;
       `;
 
-      const title = document.createElement('div');
-      title.textContent = 'Average Speed (km/h)';
-      title.style.fontWeight = 'bold';
-      title.style.marginBottom = '8px';
-      div.appendChild(title);
-
-      const bins = [
-        { range: '< 5', color: '#d32f2f', label: 'Stopped/Very Slow' },
-        { range: '5 - 15', color: '#f57c00', label: 'Slow' },
-        { range: '15 - 30', color: '#fbc02d', label: 'Normal' },
-        { range: '30 - 50', color: '#7cb342', label: 'Good' },
-        { range: '≥ 50', color: '#388e3c', label: 'Very Good' }
-      ];
-
-      for (const bin of bins) {
-        const row = document.createElement('div');
-        row.style.display = 'flex';
-        row.style.alignItems = 'center';
-        row.style.marginBottom = '6px';
-
-        const colorBox = document.createElement('div');
-        colorBox.style.cssText = `
-          width: 16px;
-          height: 16px;
-          background-color: ${bin.color};
-          border-radius: 2px;
-          margin-right: 8px;
-          flex-shrink: 0;
-        `;
-
-        const label = document.createElement('span');
-        label.textContent = `${bin.range} km/h - ${bin.label}`;
-
-        row.appendChild(colorBox);
-        row.appendChild(label);
-        div.appendChild(row);
-      }
-
+      // Initialize with default metric (travelTime)
+      updateLegendContent(div, 'travelTime');
       return div;
     };
 
     legend.addTo(map);
+  }
+
+  /**
+   * Update legend content based on selected metric
+   * @param {HTMLElement} legendDiv - The legend div to update
+   * @param {string} metric - The metric type ('travelTime', 'variance', or 'adherence')
+   */
+  function updateLegendContent(legendDiv, metric) {
+    if (!legendDiv) return;
+    
+    const metricConfig = window.RTUtil && window.RTUtil.HEATMAP_METRICS 
+      ? window.RTUtil.HEATMAP_METRICS[metric] 
+      : null;
+    
+    if (!metricConfig) {
+      console.warn(`[Legend] Metric '${metric}' not found in HEATMAP_METRICS`);
+      return;
+    }
+
+    legendDiv.innerHTML = ''; // Clear existing content
+
+    const title = document.createElement('div');
+    title.textContent = metricConfig.title;
+    title.style.fontWeight = 'bold';
+    title.style.marginBottom = '8px';
+    legendDiv.appendChild(title);
+
+    // Display bins based on metric type
+    const bins = metricConfig.colorBuckets;
+    
+    for (const bin of bins) {
+      const row = document.createElement('div');
+      row.style.display = 'flex';
+      row.style.alignItems = 'center';
+      row.style.marginBottom = '6px';
+
+      const colorBox = document.createElement('div');
+      colorBox.style.cssText = `
+        width: 16px;
+        height: 16px;
+        background-color: ${bin.color};
+        border-radius: 2px;
+        margin-right: 8px;
+        flex-shrink: 0;
+      `;
+
+      const label = document.createElement('span');
+      
+      // Format label based on metric type
+      if (metric === 'travelTime') {
+        label.textContent = `${bin.min < Infinity ? `${bin.min}-${bin.max < Infinity ? bin.max : '∞'}` : '∞'} km/h - ${bin.name}`;
+      } else if (metric === 'variance') {
+        label.textContent = `${bin.min.toFixed(2)}-${bin.max < Infinity ? bin.max.toFixed(2) : '∞'} ${bin.name}`;
+      } else if (metric === 'adherence') {
+        label.textContent = `${bin.min.toFixed(2)}-${bin.max < Infinity ? bin.max.toFixed(2) : '∞'} ${bin.name}`;
+      }
+
+      row.appendChild(colorBox);
+      row.appendChild(label);
+      legendDiv.appendChild(row);
+    }
+  }
+
+  /**
+   * Update the heatmap legend when metric changes
+   * @param {string} metric - The new metric type
+   */
+  function updateHeatmapLegend(metric) {
+    const legendDiv = document.getElementById('heatmapLegendContent');
+    if (legendDiv) {
+      updateLegendContent(legendDiv, metric);
+      console.log(`[Legend] Updated to metric: ${metric}`);
+    } else {
+      console.warn('[Legend] Legend element not found in DOM');
+    }
   }
   
   function initializeMap(doc) {
@@ -1830,19 +1910,17 @@
         }
       } catch (boundsErr) {
       }
-      
-      // Final summary log
-      console.log(`[Heatmap] Generated heatmap: ${stopAggregations.length} stops aggregated, ${heatmapPoints.length} points plotted, delay range ${(p90 - p10).toFixed(0)}s`);
     } catch (err) {
     }
   }
 
   /**
-   * Visualize top 10 busiest routes with subshapes on the map
-   * Calls RTUtil.visualizeTop10BusiestRoutes to generate and render subshapes
+   * Render subshape visualization for top N routes on the map
+   * Orchestrates data loading, segment building, and map rendering
+   * Calls RTUtil.visualizeSegmentsForTopRoutes to generate and render segments
    */
-  async function visualizeSubshapesForBusiestRoutes(filteredTripSummaries = null) {
-    console.log('[DEBUG] ▶️ visualizeSubshapesForBusiestRoutes ENTRY');
+  async function renderSubshapeVisualization(filteredTripSummaries = null) {
+    console.log('[DEBUG] ▶️ renderSubshapeVisualization ENTRY');
     
     // Use filtered trip summaries if provided, otherwise use all trip summaries
     const tripsToVisualize = filteredTripSummaries || processedData.tripSummaries;
@@ -1885,7 +1963,7 @@
         return;
       }
 
-      if (!window.RTUtil || !window.RTUtil.visualizeTop10BusiestRoutes) {
+      if (!window.RTUtil || !window.RTUtil.visualizeSegmentsForTopRoutes) {
         console.warn('[Viewer] RTUtil not loaded, cannot visualize subshapes');
         hideSubshapeLoadingOverlay(loadingOverlay);
         return;
@@ -2138,22 +2216,31 @@
       cachedHeatmapPoints = null;
 
       // Call the utility function with separate recorded data and shape→trip mapping
-      console.log('[DEBUG] 🔧 Calling RTUtil.visualizeTop10BusiestRoutes...');
+      console.log('[DEBUG] 🔧 Calling RTUtil.visualizeSegmentsForTopRoutes...');
       console.log('[DEBUG] 📍 BEFORE RTUtil - window.subshapesLayer state:', {
         exists: !!window.subshapesLayer,
         layers: window.subshapesLayer ? window.subshapesLayer.getLayers().length : 'N/A',
         onMap: window.subshapesLayer ? leafletMap.hasLayer(window.subshapesLayer) : 'N/A'
       });
       
-      const result = await window.RTUtil.visualizeTop10BusiestRoutes(
+      // Get selected metric from dropdown (query DOM directly for this scope)
+      const metricSelect = targetDoc.getElementById('heatmapMetric');
+      const selectedMetric = (metricSelect && metricSelect.value) ? metricSelect.value : 'travelTime';
+      console.log('[DEBUG] 🎨 Selected metric:', selectedMetric);
+      
+      // Update legend to match selected metric
+      updateHeatmapLegend(selectedMetric);
+      
+      const result = await window.RTUtil.visualizeSegmentsForTopRoutes(
         tripsToVisualize,
         processedData.routeStats,
         gtfsData,
         recordedStopTimes,
         leafletMap,
         processedData.stopDeltasByTrip,  // Pass full stop details for speed calculation
-        segmentsCache,  // Pass the persistent segments cache (masterSegments)
-        TOP_N_ROUTES  // Pass the topN parameter
+        masterSegments,  // Pass the persistent segments cache (persists across filter changes)
+        TOP_N_ROUTES,  // Pass the topN parameter
+        selectedMetric  // Pass the selected metric
       );
       console.log('[DEBUG] ✅ RTUtil call returned:', result?.metadata);
       
@@ -2207,8 +2294,8 @@
       }
       
       // Log summary statistics (removed verbose segment details)
-      const segmentKeys = Object.keys(segmentsCache);
-      console.log(`[DEBUG] 📊 Segments cache: ${segmentKeys.length} total segments built`);
+      const segmentKeys = Object.keys(masterSegments);
+      console.log(`[DEBUG] 📊 Master segments cache: ${segmentKeys.length} total segments built`);
 
     } catch (err) {
       console.error('[DEBUG] ❌ Error visualizing subshapes:', err);
@@ -2216,7 +2303,7 @@
       // Hide loading overlay
       console.log('[DEBUG] 🔚 Hiding loading overlay...');
       hideSubshapeLoadingOverlay(loadingOverlay);
-      console.log('[DEBUG] ⏹️ visualizeSubshapesForBusiestRoutes EXIT');
+      console.log('[DEBUG] ⏹️ renderSubshapeVisualization EXIT');
     }
   }
 
@@ -2792,53 +2879,78 @@
     
     updateHourlyDelayChart(doc, filteredStopDeltas, hourlyStartEpoch, hourlyEndEpoch, timeFilterBaseDay);
     
-    // DISABLED: Old heatmap plotting - now using subshape visualization instead
-    // updateHeatmap(filteredStopDeltas);
-
-    // Visualize subshapes for top 10 busiest routes (only if map tab is active and ready)
-    // Replaced heatmap with subshape visualization for better route-level insights
-    // IMPORTANT: Await visualization to ensure loading overlay and all async work completes
-    const mapTab = doc.querySelector('.tab[data-tab="map"]');
-    const isMapTabActive = mapTab && mapTab.classList.contains('active');
-    
-    console.log('[DEBUG] 🎯 Visualization check:', {
-      leafletMapExists: !!leafletMap,
-      mapInitialized,
-      isMapTabActive,
-      shouldVisualize: leafletMap && mapInitialized && isMapTabActive
-    });
-    
-    if (leafletMap && mapInitialized && isMapTabActive) {
-      try {
-        console.log('[DEBUG] ▶️ Starting visualization with filtered trip data...');
-        await visualizeSubshapesForBusiestRoutes(filteredTripSummaries);
-        console.log('[DEBUG] ✅ Subshape visualization COMPLETED');
-      } catch (err) {
-        console.error('[DEBUG] ❌ Subshape visualization ERROR:', err);
-      }
-    } else {
-      console.warn('[DEBUG] ⏭️ Skipping visualization:', {
-        reason: !leafletMap ? 'no leafletMap' : (!mapInitialized ? 'mapInitialized=false' : 'map tab not active')
-      });
-    }
+    // Update heatmap visualization (on map tab if active)
+    // updateHeatmaps() is self-contained: reads globals (route/time filters) and applies them
+    await updateHeatmaps(doc);
     
     // Update stats tab
     renderStatsTab(doc, filteredTripSummaries, filteredStopDeltas);
     
     console.log('[Viewer] ⏹️ renderCharts EXIT - all updates complete');
   }
-  
-  // Helper functions for time filtering (working with epoch seconds)
-  function isTimeInRange(timeEpoch, startEpoch, endEpoch) {
-    if (timeEpoch === null || startEpoch === null || endEpoch === null) return false;
-    return timeEpoch >= startEpoch && timeEpoch <= endEpoch;
-  }
-  
-  function isTimeBefore(timeEpoch1, timeEpoch2) {
-    if (timeEpoch1 === null || timeEpoch2 === null) return false;
-    return timeEpoch1 < timeEpoch2;
-  }
 
+  /**
+   * Update heatmap/subshape visualization for the map
+   * Self-contained: reads route + time filters from globals, applies them, then visualizes
+   * Calls renderSubshapeVisualization only if map tab is active
+   * 
+   * Used by:
+   *   - Apply Filter (after reading filters from DOM)
+   *   - Refresh (after reading filters from DOM)
+   *   - Map tab initialization
+   * 
+   * @param {Object} doc - Target document
+   */
+  async function updateHeatmaps(doc) {
+    // Apply filters to raw trip data
+    let filteredTripSummaries = processedData.tripSummaries;
+    
+    // Apply time filter
+    if (timeFilterStartEpoch !== null && timeFilterEndEpoch !== null) {
+      const filteredTripIds = new Set();
+      for (const trip of processedData.tripSummaries) {
+        if (!trip.firstRecordedTime || !trip.lastRecordedTime) continue;
+        const tripStart = trip.firstRecordedTime;
+        const tripEnd = trip.lastRecordedTime;
+        if (tripEnd >= timeFilterStartEpoch && tripStart <= timeFilterEndEpoch) {
+          filteredTripIds.add(trip.tripId);
+        }
+      }
+      filteredTripSummaries = processedData.tripSummaries.filter(t => filteredTripIds.has(t.tripId));
+    }
+    
+    // Apply route filter
+    if (selectedRouteIds.size > 0) {
+      filteredTripSummaries = filteredTripSummaries.filter(t => selectedRouteIds.has(t.routeId));
+    }
+    
+    console.log('[Viewer] updateHeatmaps applied filters:', {
+      totalTrips: processedData.tripSummaries.length,
+      timeFilter: { start: timeFilterStartEpoch, end: timeFilterEndEpoch },
+      routeFilter: Array.from(selectedRouteIds),
+      filteredTrips: filteredTripSummaries.length,
+      mapTabActive: doc.querySelector('.tab[data-tab="map"]')?.classList.contains('active')
+    });
+    
+    // Visualize subshapes for top N routes (only if map tab is active and ready)
+    const mapTab = doc.querySelector('.tab[data-tab="map"]');
+    const isMapTabActive = mapTab && mapTab.classList.contains('active');
+    
+    if (leafletMap && mapInitialized && isMapTabActive) {
+      try {
+        console.log('[Viewer] ▶️ Starting heatmap visualization...');
+        await renderSubshapeVisualization(filteredTripSummaries);
+        console.log('[Viewer] ✅ Heatmap visualization COMPLETED');
+      } catch (err) {
+        console.error('[Viewer] ❌ Heatmap visualization ERROR:', err);
+      }
+    } else {
+      console.log('[Viewer] ⏭️ Skipping heatmap visualization:', {
+        reason: !leafletMap ? 'no leafletMap' : (!mapInitialized ? 'mapInitialized=false' : 'map tab not active')
+      });
+    }
+  }
+  
   function updateRouteChart(data) {
     console.log('[Viewer] Updating route chart with', data.length, 'routes');
     
@@ -3461,7 +3573,7 @@
     sampleTrips: sampleTripsForRoute,
     debugTripById: debugTripById,
     debugTripDelays: debugTripDelays,
-    visualizeSubshapesForBusiestRoutes: visualizeSubshapesForBusiestRoutes
+    renderSubshapeVisualization: renderSubshapeVisualization
   };
 
   // ============================================================================

@@ -1,12 +1,12 @@
 {
-  "agencyId": "translink",
-  "feedUrl": "https://ttc-gtfsrt.onrender.com/translink-vehicles",
-  "tripUpdateUrl": "https://ttc-gtfsrt.onrender.com/translink-trip-updates",
-  "githubRepo": "LookArail/translink_gtfsrt",
+  "agencyId": "ttc",
+  "feedUrl": "https://ttc-gtfsrt.onrender.com/vehicles",
+  "tripUpdateUrl": "https://ttc-gtfsrt.onrender.com/trip-updates",
+  "githubRepo": "LookArail/ttc_gtfsrt",
   "githubBranch": "main",
-  "timeZone": "America/Vancouver",
+  "timeZone": "America/Toronto",
   "map": {
-    "center": [49.2827, -123.1207],
+    "center": [43.6532, -79.3832],
     "zoom": 12
   }
 }
