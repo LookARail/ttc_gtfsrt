@@ -54,15 +54,23 @@
         
         <h3 style="margin-top: 20px;">Time Filter</h3>
         <div class="time-filter">
-          <div class="form-group time-filter-row">
-            <div class="time-col">
-              <label for="timeStart">Start:</label>
-              <input type="text" id="timeStart" placeholder="HH:MM:SS" disabled class="time-input">
+          <div class="time-range-display">
+            <div class="time-display-item">
+              <span class="time-label">Start:</span>
+              <span class="time-value" id="timeDisplayStart">--:--</span>
             </div>
-            <div class="time-col">
-              <label for="timeEnd">End:</label>
-              <input type="text" id="timeEnd" placeholder="HH:MM:SS" disabled class="time-input">
+            <div class="time-display-item">
+              <span class="time-label">End:</span>
+              <span class="time-value" id="timeDisplayEnd">--:--</span>
             </div>
+          </div>
+          <div class="range-slider-container">
+            <!-- Dummy slider: just the background track, disabled -->
+            <input type="range" id="timeSliderDummy" class="range-slider range-slider-dummy" min="0" max="100" value="50" disabled />
+            <!-- Start slider: thumb only, positioned on top -->
+            <input type="range" id="timeSliderStart" class="range-slider range-slider-thumb-only" min="0" max="100" value="0" disabled />
+            <!-- End slider: thumb only, positioned on top -->
+            <input type="range" id="timeSliderEnd" class="range-slider range-slider-thumb-only" min="0" max="100" value="100" disabled />
           </div>
           <div id="timeRangeInfo" class="time-range-info">Available range: —</div>
         </div>
@@ -111,18 +119,26 @@
           
           <div id="mapTab" class="tab-content">
             <div class="map-controls">
-              <div class="control-group">
+              <div class="control-group top-n-group">
                 <label for="topNRoutes">Top N Routes:</label>
                 <input type="number" id="topNRoutes" min="1" max="200" value="150" />
-                <button id="refreshHeatmapBtn" style="margin-left: 8px; padding: 6px 12px; cursor: pointer;">🔄 Refresh</button>
               </div>
-              <div class="control-group">
+              <div class="control-group metric-group">
                 <label for="heatmapMetric">Metric:</label>
                 <select id="heatmapMetric">
-                  <option value="incrementalDelay">Incremental Delay at Stops</option>
-                  <option value="travelTime">Travel Time (All Routes)</option>
+                  <option value="travelTime">Travel Time (Speed)</option>
+                  <option value="variance">Travel Time Variance</option>
+                  <option value="adherence">Travel Time Adherence</option>
                 </select>
               </div>
+              <button id="refreshHeatmapBtn" class="refresh-btn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0114.85-3.36M20.49 15a9 9 0 01-14.85 3.36"></path>
+                </svg>
+                Refresh
+              </button>
             </div>
             <div id="heatmapLegend" class="heatmap-legend"></div>
             <div id="heatmapContainer" class="map-container"></div>
