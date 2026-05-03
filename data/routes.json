@@ -16,7 +16,7 @@
   "3": {
     "route_id": "3",
     "route_short_name": "3",
-    "route_long_name": "SHUTTLE BUS",
+    "route_long_name": "LINE 3 SHUTTLE BUS",
     "route_type": 3,
     "route_color": "FFFFFF"
   },
@@ -26,6 +26,13 @@
     "route_long_name": "LINE 4 SHUTTLE BUS",
     "route_type": 3,
     "route_color": "FFFFFF"
+  },
+  "5": {
+    "route_id": "5",
+    "route_short_name": "5",
+    "route_long_name": "LINE 5 SHUTTLE BUS",
+    "route_type": 3,
+    "route_color": "ffffff"
   },
   "6": {
     "route_id": "6",
@@ -1042,6 +1049,27 @@
     "route_type": 3,
     "route_color": "ed1c24"
   },
+  "200": {
+    "route_id": "200",
+    "route_short_name": "200",
+    "route_long_name": "Toronto Zoo",
+    "route_type": 3,
+    "route_color": "e472ac"
+  },
+  "201": {
+    "route_id": "201",
+    "route_short_name": "201",
+    "route_long_name": "Bluffer's Park",
+    "route_type": 3,
+    "route_color": "e472ac"
+  },
+  "202": {
+    "route_id": "202",
+    "route_short_name": "202",
+    "route_long_name": "Cherry Beach",
+    "route_type": 3,
+    "route_color": "e472ac"
+  },
   "203": {
     "route_id": "203",
     "route_short_name": "203",
@@ -1357,12 +1385,12 @@
     "route_type": 0,
     "route_color": "ed1c24"
   },
-  "805": {
-    "route_id": "805",
-    "route_short_name": "805",
-    "route_long_name": "Line 5 Shuttle",
-    "route_type": 3,
-    "route_color": "ff8000"
+  "705": {
+    "route_id": "705",
+    "route_short_name": "705",
+    "route_long_name": "Streetcar Run As Directed",
+    "route_type": 4,
+    "route_color": "808000"
   },
   "830": {
     "route_id": "830",
@@ -1459,13 +1487,6 @@
     "route_id": "937",
     "route_short_name": "937",
     "route_long_name": "Islington Express",
-    "route_type": 3,
-    "route_color": "00a651"
-  },
-  "938": {
-    "route_id": "938",
-    "route_short_name": "938",
-    "route_long_name": "Highland Creek Express",
     "route_type": 3,
     "route_color": "00a651"
   },
