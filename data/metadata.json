@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-03T08:16:45.308Z",
+  "generated_at": "2026-05-04T08:22:46.258Z",
   "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
   "current": {
     "start_date": "2026-05-03",
@@ -18,6 +18,12 @@
       "end_date": "2026-05-02",
       "folder": "archive/2026-03-15",
       "added_at": "2026-03-15T00:00:00.000Z"
+    },
+    {
+      "start_date": "2026-05-03",
+      "end_date": "2026-06-06",
+      "folder": ".",
+      "added_at": "2026-05-04T08:22:46.258Z"
     }
   ],
   "stats": {
@@ -26,7 +32,8 @@
     "stops": 9096,
     "shapes": 1387,
     "stop_times_trips": 126269,
-    "stop_times_route_files": 222
+    "stop_times_route_files": 222,
+    "total_versions": 3
   },
   "stop_times_files": {
     "7": "stop-times-route-7.json",
