@@ -1,6 +1,25 @@
 {
   "generated_at": "2026-05-03T08:16:45.308Z",
   "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
+  "current": {
+    "start_date": "2026-05-03",
+    "end_date": "2026-06-06",
+    "folder": "."
+  },
+  "versions": [
+    {
+      "start_date": "2026-05-03",
+      "end_date": "2026-06-06",
+      "folder": ".",
+      "added_at": "2026-05-03T08:16:45.308Z"
+    },
+    {
+      "start_date": "2026-03-15",
+      "end_date": "2026-05-02",
+      "folder": "archive/2026-03-15",
+      "added_at": "2026-03-15T00:00:00.000Z"
+    }
+  ],
   "stats": {
     "routes": 228,
     "trips": 126273,
