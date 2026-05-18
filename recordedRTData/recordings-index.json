@@ -1,17 +1,18 @@
 {
-  "generated_at": "2026-05-17T17:21:23.750688Z",
+  "generated_at": "2026-05-18T17:42:56.328399Z",
   "retention_days": 90,
   "cleanup_results": {
     "deleted_count": 0,
-    "remaining_count": 52
+    "remaining_count": 53
   },
   "available_recordings": {
-    "count": 52,
+    "count": 53,
     "date_range": {
-      "newest": "2026-05-16",
+      "newest": "2026-05-17",
       "oldest": "2026-03-26"
     },
     "by_date": {
+      "2026-05-17": "2026-05-17.json",
       "2026-05-16": "2026-05-16.json",
       "2026-05-15": "2026-05-15.json",
       "2026-05-14": "2026-05-14.json",
