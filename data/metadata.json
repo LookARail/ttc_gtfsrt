@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-04T08:52:33.427Z",
+  "generated_at": "2026-06-05T08:50:39.113Z",
   "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
   "current": {
     "start_date": "2026-05-03",
@@ -210,6 +210,12 @@
       "end_date": "2026-06-06",
       "folder": ".",
       "added_at": "2026-06-04T08:52:33.426Z"
+    },
+    {
+      "start_date": "20260607",
+      "end_date": "20260620",
+      "folder": "archive/2026-06-07",
+      "added_at": "2026-06-05T08:50:39.112Z"
     }
   ],
   "stats": {
