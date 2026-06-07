@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-06-06T08:23:36.769Z",
+  "generated_at": "2026-06-07T04:07:13.723Z",
   "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
   "current": {
-    "start_date": "2026-05-03",
-    "end_date": "2026-06-06",
+    "start_date": "2026-06-07",
+    "end_date": "2026-06-20",
     "folder": "."
   },
   "versions": [
@@ -216,16 +216,22 @@
       "end_date": "20260620",
       "folder": "archive/2026-06-07",
       "added_at": "2026-06-05T08:50:39.112Z"
+    },
+    {
+      "start_date": "2026-06-07",
+      "end_date": "2026-06-20",
+      "folder": ".",
+      "added_at": "2026-06-07T04:07:13.722Z"
     }
   ],
   "stats": {
     "routes": 228,
-    "trips": 126273,
-    "stops": 9096,
-    "shapes": 1387,
-    "stop_times_trips": 126269,
+    "trips": 98632,
+    "stops": 9089,
+    "shapes": 1393,
+    "stop_times_trips": 98628,
     "stop_times_route_files": 222,
-    "total_versions": 34
+    "total_versions": 36
   },
   "stop_times_files": {
     "7": "stop-times-route-7.json",
@@ -382,7 +388,9 @@
     "305": "stop-times-route-305.json",
     "306": "stop-times-route-306.json",
     "307": "stop-times-route-307.json",
+    "309": "stop-times-route-309.json",
     "310": "stop-times-route-310.json",
+    "311": "stop-times-route-311.json",
     "312": "stop-times-route-312.json",
     "315": "stop-times-route-315.json",
     "316": "stop-times-route-316.json",
@@ -415,12 +423,10 @@
     "505": "stop-times-route-505.json",
     "506": "stop-times-route-506.json",
     "507": "stop-times-route-507.json",
-    "508": "stop-times-route-508.json",
     "509": "stop-times-route-509.json",
     "510": "stop-times-route-510.json",
     "511": "stop-times-route-511.json",
     "512": "stop-times-route-512.json",
-    "705": "stop-times-route-705.json",
     "830": "stop-times-route-830.json",
     "882": "stop-times-route-882.json",
     "900": "stop-times-route-900.json",
