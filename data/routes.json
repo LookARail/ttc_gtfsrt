@@ -1392,13 +1392,6 @@
     "route_type": 0,
     "route_color": "ed1c24"
   },
-  "830": {
-    "route_id": "830",
-    "route_short_name": "830",
-    "route_long_name": "Henry Kelsey - Middlefield",
-    "route_type": 3,
-    "route_color": "ed1c24"
-  },
   "882": {
     "route_id": "882",
     "route_short_name": "882",
@@ -1497,27 +1490,6 @@
     "route_type": 3,
     "route_color": "00a651"
   },
-  "941": {
-    "route_id": "941",
-    "route_short_name": "941",
-    "route_long_name": "Keele Express",
-    "route_type": 3,
-    "route_color": "00a651"
-  },
-  "944": {
-    "route_id": "944",
-    "route_short_name": "944",
-    "route_long_name": "Kipling South Express",
-    "route_type": 3,
-    "route_color": "00a651"
-  },
-  "945": {
-    "route_id": "945",
-    "route_short_name": "945",
-    "route_long_name": "Kipling Express",
-    "route_type": 3,
-    "route_color": "00a651"
-  },
   "952": {
     "route_id": "952",
     "route_short_name": "952",
@@ -1543,13 +1515,6 @@
     "route_id": "960",
     "route_short_name": "960",
     "route_long_name": "Steeles West Express",
-    "route_type": 3,
-    "route_color": "00a651"
-  },
-  "968": {
-    "route_id": "968",
-    "route_short_name": "968",
-    "route_long_name": "Warden Express",
     "route_type": 3,
     "route_color": "00a651"
   },

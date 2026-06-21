@@ -1217,12 +1217,6 @@
     "stop_lat": 43.765676,
     "stop_lon": -79.291272
   },
-  "237": {
-    "stop_id": "237",
-    "stop_name": "Ceramic Rd at Le Page Crt",
-    "stop_lat": 43.758851,
-    "stop_lon": -79.484719
-  },
   "238": {
     "stop_id": "238",
     "stop_name": "Crosby Ave at Warren Cres",
@@ -2128,12 +2122,6 @@
     "stop_name": "Trethewey Dr at Brookhaven Dr",
     "stop_lat": 43.696817,
     "stop_lon": -79.494201
-  },
-  "412": {
-    "stop_id": "412",
-    "stop_name": "McCowan Rd at Big Red Ave North Side",
-    "stop_lat": 43.814781,
-    "stop_lon": -79.270447
   },
   "414": {
     "stop_id": "414",
@@ -11345,6 +11333,12 @@
     "stop_lat": 43.670712,
     "stop_lon": -79.502634
   },
+  "2210": {
+    "stop_id": "2210",
+    "stop_name": "Ossington Ave at Salvador Allende Crt South Side",
+    "stop_lat": 43.671906,
+    "stop_lon": -79.429892
+  },
   "2211": {
     "stop_id": "2211",
     "stop_name": "Main St at Gerrard St East",
@@ -12328,12 +12322,6 @@
     "stop_name": "Brimley Rd at Mandarin Rd",
     "stop_lat": 43.722455,
     "stop_lon": -79.241999
-  },
-  "2422": {
-    "stop_id": "2422",
-    "stop_name": "Sunrise Ave at Victoria Park Ave West Side",
-    "stop_lat": 43.719571,
-    "stop_lon": -79.30186
   },
   "2423": {
     "stop_id": "2423",
@@ -16223,12 +16211,6 @@
     "stop_lat": 43.710643,
     "stop_lon": -79.521041
   },
-  "4077": {
-    "stop_id": "4077",
-    "stop_name": "Kipling Station at Bus Bay 10",
-    "stop_lat": 43.638467,
-    "stop_lon": -79.534689
-  },
   "4078": {
     "stop_id": "4078",
     "stop_name": "WILSON STATION AT LOWER PLATFORM BUS BAY 7",
@@ -16499,18 +16481,6 @@
     "stop_lat": 43.642032,
     "stop_lon": -79.401977
   },
-  "4142": {
-    "stop_id": "4142",
-    "stop_name": "Bathurst St at Niagara St",
-    "stop_lat": 43.642009,
-    "stop_lon": -79.40203
-  },
-  "4143": {
-    "stop_id": "4143",
-    "stop_name": "Bathurst St at Queen St West",
-    "stop_lat": 43.64709,
-    "stop_lon": -79.403831
-  },
   "4146": {
     "stop_id": "4146",
     "stop_name": "Sheppard Ave East at Midland Ave",
@@ -16739,18 +16709,6 @@
     "stop_lat": 43.734666,
     "stop_lon": -79.257977
   },
-  "4190": {
-    "stop_id": "4190",
-    "stop_name": "Bathurst St at King St West",
-    "stop_lat": 43.644062,
-    "stop_lon": -79.402862
-  },
-  "4191": {
-    "stop_id": "4191",
-    "stop_name": "Bathurst St at King St West",
-    "stop_lat": 43.643803,
-    "stop_lon": -79.402497
-  },
   "4194": {
     "stop_id": "4194",
     "stop_name": "Birchmount Rd at 14th Ave",
@@ -16961,35 +16919,11 @@
     "stop_lat": 43.64617,
     "stop_lon": -79.37883
   },
-  "4261": {
-    "stop_id": "4261",
-    "stop_name": "Fort York Blvd at Gzowski Blvd",
-    "stop_lat": 43.637609,
-    "stop_lon": -79.403939
-  },
-  "4262": {
-    "stop_id": "4262",
-    "stop_name": "Fort York Blvd at Fleet St",
-    "stop_lat": 43.636519,
-    "stop_lon": -79.406992
-  },
-  "4263": {
-    "stop_id": "4263",
-    "stop_name": "Princes' Blvd at Strachan Ave",
-    "stop_lat": 43.635095,
-    "stop_lon": -79.408568
-  },
   "4264": {
     "stop_id": "4264",
     "stop_name": "Fleet St at Fort York Blvd",
     "stop_lat": 43.636282,
     "stop_lon": -79.407391
-  },
-  "4265": {
-    "stop_id": "4265",
-    "stop_name": "Fort York Blvd at Bastion St East Side",
-    "stop_lat": 43.63749,
-    "stop_lon": -79.403513
   },
   "4273": {
     "stop_id": "4273",
@@ -17606,14 +17540,14 @@
   "4457": {
     "stop_id": "4457",
     "stop_name": "Birchmount Rd at Highview Ave South Side",
-    "stop_lat": 43.699759,
-    "stop_lon": -79.265226
+    "stop_lat": 43.699381,
+    "stop_lon": -79.265086
   },
   "4458": {
     "stop_id": "4458",
     "stop_name": "Birchmount Rd at Highview Ave",
-    "stop_lat": 43.699574,
-    "stop_lon": -79.264955
+    "stop_lat": 43.698854,
+    "stop_lon": -79.264649
   },
   "4459": {
     "stop_id": "4459",
@@ -22133,6 +22067,12 @@
     "stop_lat": 43.713755,
     "stop_lon": -79.292742
   },
+  "5384": {
+    "stop_id": "5384",
+    "stop_name": "Lawrence Ave East at McCowan Rd",
+    "stop_lat": 43.755706,
+    "stop_lon": -79.245279
+  },
   "5385": {
     "stop_id": "5385",
     "stop_name": "Vaughan Rd at Maplewood Ave South Side",
@@ -22306,12 +22246,6 @@
     "stop_name": "Summerhill Ave at Maclennan Ave",
     "stop_lat": 43.685729,
     "stop_lon": -79.377692
-  },
-  "5417": {
-    "stop_id": "5417",
-    "stop_name": "Birchmount Rd at Raleigh Ave",
-    "stop_lat": 43.701761,
-    "stop_lon": -79.265833
   },
   "5418": {
     "stop_id": "5418",
@@ -23687,12 +23621,6 @@
     "stop_lat": 43.670832,
     "stop_lon": -79.475535
   },
-  "5688": {
-    "stop_id": "5688",
-    "stop_name": "Sunrise Ave at O'Connor Dr",
-    "stop_lat": 43.719177,
-    "stop_lon": -79.303662
-  },
   "5689": {
     "stop_id": "5689",
     "stop_name": "Opposite 519 Kennedy Rd (Cemetery)",
@@ -23938,6 +23866,12 @@
     "stop_name": "Weston Rd at Oak St",
     "stop_lat": 43.707859,
     "stop_lon": -79.533756
+  },
+  "5737": {
+    "stop_id": "5737",
+    "stop_name": "Pape Ave at Bain Ave",
+    "stop_lat": 43.673043,
+    "stop_lon": -79.342537
   },
   "5738": {
     "stop_id": "5738",
@@ -27088,12 +27022,6 @@
     "stop_name": "Bayview Ave at Lawrence Ave East - York University Glendon C",
     "stop_lat": 43.727686,
     "stop_lon": -79.382237
-  },
-  "6371": {
-    "stop_id": "6371",
-    "stop_name": "North York General Hospital - Main Entrance",
-    "stop_lat": 43.76971,
-    "stop_lon": -79.363485
   },
   "6372": {
     "stop_id": "6372",
@@ -32009,12 +31937,6 @@
     "stop_lat": 43.795394,
     "stop_lon": -79.432403
   },
-  "7324": {
-    "stop_id": "7324",
-    "stop_name": "Jane St at Gordon Mackay Rd South Side",
-    "stop_lat": 43.715134,
-    "stop_lon": -79.507259
-  },
   "7325": {
     "stop_id": "7325",
     "stop_name": "Wilson Heights Blvd at Cocksfield Ave",
@@ -33034,6 +32956,12 @@
     "stop_name": "Main St at Danforth Ave",
     "stop_lat": 43.688299,
     "stop_lon": -79.302005
+  },
+  "7521": {
+    "stop_id": "7521",
+    "stop_name": "Riverdale Ave at Pape Ave West Side",
+    "stop_lat": 43.671147,
+    "stop_lon": -79.342275
   },
   "7522": {
     "stop_id": "7522",
@@ -34739,6 +34667,12 @@
     "stop_lat": 43.725787,
     "stop_lon": -79.396998
   },
+  "7862": {
+    "stop_id": "7862",
+    "stop_name": "Royalcrest Rd at Highway 27 East Side",
+    "stop_lat": 43.749901,
+    "stop_lon": -79.60932
+  },
   "7863": {
     "stop_id": "7863",
     "stop_name": "The Queensway at Burma Dr",
@@ -36028,12 +35962,6 @@
     "stop_name": "Pharmacy Ave at Steeles Ave East",
     "stop_lat": 43.81668,
     "stop_lon": -79.336221
-  },
-  "8116": {
-    "stop_id": "8116",
-    "stop_name": "Highview Ave at Birchmount Rd",
-    "stop_lat": 43.700046,
-    "stop_lon": -79.264885
   },
   "8118": {
     "stop_id": "8118",
@@ -38344,12 +38272,6 @@
     "stop_name": "6445 Airport Rd",
     "stop_lat": 43.692968,
     "stop_lon": -79.627686
-  },
-  "8572": {
-    "stop_id": "8572",
-    "stop_name": "Birchmount Rd at Mack Ave",
-    "stop_lat": 43.701725,
-    "stop_lon": -79.26608
   },
   "8573": {
     "stop_id": "8573",
@@ -47213,12 +47135,6 @@
     "stop_lat": 43.753916,
     "stop_lon": -79.599856
   },
-  "10327": {
-    "stop_id": "10327",
-    "stop_name": "Dundas St West at Subway Cres",
-    "stop_lat": 43.635838,
-    "stop_lon": -79.5401
-  },
   "10328": {
     "stop_id": "10328",
     "stop_name": "Victoria Park Ave at Gordon Baker Rd",
@@ -48641,12 +48557,6 @@
     "stop_lat": 43.678878,
     "stop_lon": -79.496666
   },
-  "10600": {
-    "stop_id": "10600",
-    "stop_name": "Highview Ave at Aylesworth Ave",
-    "stop_lat": 43.700097,
-    "stop_lon": -79.264268
-  },
   "10601": {
     "stop_id": "10601",
     "stop_name": "Spadina Rd at Lonsdale Rd",
@@ -49421,12 +49331,6 @@
     "stop_lat": 43.747659,
     "stop_lon": -79.199145
   },
-  "11112": {
-    "stop_id": "11112",
-    "stop_name": "Bedford Rd at Lowther Ave North Side",
-    "stop_lat": 43.670643,
-    "stop_lon": -79.398208
-  },
   "11113": {
     "stop_id": "11113",
     "stop_name": "Guildwood Pkwy at Guild Inn East Side",
@@ -49480,12 +49384,6 @@
     "stop_name": "Woodbine Ave at Merrill Ave",
     "stop_lat": 43.683321,
     "stop_lon": -79.311673
-  },
-  "11124": {
-    "stop_id": "11124",
-    "stop_name": "St Basil The Great College School",
-    "stop_lat": 43.726807,
-    "stop_lon": -79.533952
   },
   "11125": {
     "stop_id": "11125",
@@ -49684,12 +49582,6 @@
     "stop_name": "Hospital Rd at Wellness Way East Side - Sunnybrook Main Entr",
     "stop_lat": 43.72178,
     "stop_lon": -79.376853
-  },
-  "11195": {
-    "stop_id": "11195",
-    "stop_name": "Hospital Rd at Wellness Way East Side - Sunnybrook Main Entr",
-    "stop_lat": 43.72182,
-    "stop_lon": -79.376728
   },
   "11204": {
     "stop_id": "11204",
@@ -50291,54 +50183,6 @@
     "stop_lat": 43.74768,
     "stop_lon": -79.284634
   },
-  "18304": {
-    "stop_id": "18304",
-    "stop_name": "Mill Rd at Markland Dr North Side - Silverthorne C.I.",
-    "stop_lat": 43.636801,
-    "stop_lon": -79.580754
-  },
-  "18305": {
-    "stop_id": "18305",
-    "stop_name": "Saint John Paul II S.S.",
-    "stop_lat": 43.790618,
-    "stop_lon": -79.199904
-  },
-  "18306": {
-    "stop_id": "18306",
-    "stop_name": "Michael Power / St Joseph H.S.",
-    "stop_lat": 43.65916,
-    "stop_lon": -79.58283
-  },
-  "18307": {
-    "stop_id": "18307",
-    "stop_name": "1107 Avenue Rd - Marshall McLuhan Secondary School",
-    "stop_lat": 43.708037,
-    "stop_lon": -79.409118
-  },
-  "18308": {
-    "stop_id": "18308",
-    "stop_name": "Fenelon Loop at Graydon Hall Dr",
-    "stop_lat": 43.763733,
-    "stop_lon": -79.339161
-  },
-  "18311": {
-    "stop_id": "18311",
-    "stop_name": "Michael Power / St Joseph H.S.",
-    "stop_lat": 43.659497,
-    "stop_lon": -79.582992
-  },
-  "18312": {
-    "stop_id": "18312",
-    "stop_name": "Michael Power / St Joseph H.S.",
-    "stop_lat": 43.659312,
-    "stop_lon": -79.582914
-  },
-  "18313": {
-    "stop_id": "18313",
-    "stop_name": "127 Victoria Park Ave - Neil McNeil Secondary School",
-    "stop_lat": 43.67935,
-    "stop_lon": -79.283367
-  },
   "18358": {
     "stop_id": "18358",
     "stop_name": "Kingston Rd at St Clair Ave East",
@@ -50752,12 +50596,6 @@
     "stop_name": "Brimley Rd at Heather Rd",
     "stop_lat": 43.790846,
     "stop_lon": -79.26995
-  },
-  "18794": {
-    "stop_id": "18794",
-    "stop_name": "Fort York Blvd at Iannuzzi St East Side",
-    "stop_lat": 43.638389,
-    "stop_lon": -79.40154
   },
   "18797": {
     "stop_id": "18797",
@@ -52877,12 +52715,6 @@
     "stop_lat": 43.78873,
     "stop_lon": -79.24019
   },
-  "42535": {
-    "stop_id": "42535",
-    "stop_name": "Pape Ave at Dingwall Ave",
-    "stop_lat": 43.673731,
-    "stop_lon": -79.342786
-  },
   "42536": {
     "stop_id": "42536",
     "stop_name": "Bartor Rd at 2233 Sheppard Ave West",
@@ -53003,12 +52835,6 @@
     "stop_lat": 43.693225,
     "stop_lon": -79.47833
   },
-  "42567": {
-    "stop_id": "42567",
-    "stop_name": "Bathurst St at Niagara St",
-    "stop_lat": 43.641713,
-    "stop_lon": -79.401665
-  },
   "42568": {
     "stop_id": "42568",
     "stop_name": "Eglinton Ave West at Mt Dennis Station",
@@ -53086,6 +52912,18 @@
     "stop_name": "1410 Military Trail",
     "stop_lat": 43.782914,
     "stop_lon": -79.178372
+  },
+  "42581": {
+    "stop_id": "42581",
+    "stop_name": "Lake Shore Blvd East at Northern Dancer Blvd",
+    "stop_lat": 43.663493,
+    "stop_lon": -79.309595
+  },
+  "42582": {
+    "stop_id": "42582",
+    "stop_name": "Lake Shore Blvd East at Northern Dancer Blvd",
+    "stop_lat": 43.663287,
+    "stop_lon": -79.309919
   },
   "42583": {
     "stop_id": "42583",
@@ -54473,12 +54311,6 @@
     "stop_lat": 43.672019,
     "stop_lon": -79.341927
   },
-  "43174": {
-    "stop_id": "43174",
-    "stop_name": "Fort York Blvd at Fleet St",
-    "stop_lat": 43.636219,
-    "stop_lon": -79.406729
-  },
   "43175": {
     "stop_id": "43175",
     "stop_name": "Neilson Rd at Crow Trail",
@@ -54532,5 +54364,59 @@
     "stop_name": "Carlton St at Jarvis St East Side",
     "stop_lat": 43.662426,
     "stop_lon": -79.376247
+  },
+  "43196": {
+    "stop_id": "43196",
+    "stop_name": "Aylesworth Ave at Highview Ave",
+    "stop_lat": 43.700054,
+    "stop_lon": -79.264025
+  },
+  "43197": {
+    "stop_id": "43197",
+    "stop_name": "Birchmount Rd at Raleigh Ave",
+    "stop_lat": 43.702969,
+    "stop_lon": -79.266612
+  },
+  "43198": {
+    "stop_id": "43198",
+    "stop_name": "Birchmount Rd at Raleigh Ave North Side",
+    "stop_lat": 43.702529,
+    "stop_lon": -79.266152
+  },
+  "43199": {
+    "stop_id": "43199",
+    "stop_name": "Bathurst St at London St",
+    "stop_lat": 43.666687,
+    "stop_lon": -79.411723
+  },
+  "43200": {
+    "stop_id": "43200",
+    "stop_name": "Bedford Rd at Lowther Ave",
+    "stop_lat": 43.670221,
+    "stop_lon": -79.398201
+  },
+  "43201": {
+    "stop_id": "43201",
+    "stop_name": "McCowan Rd at Big Red Ave",
+    "stop_lat": 43.813955,
+    "stop_lon": -79.270101
+  },
+  "43202": {
+    "stop_id": "43202",
+    "stop_name": "Jane St at Gordon Mackay Rd",
+    "stop_lat": 43.71583,
+    "stop_lon": -79.50741
+  },
+  "43203": {
+    "stop_id": "43203",
+    "stop_name": "Dundas St West at Samuel Wood Way",
+    "stop_lat": 43.635449,
+    "stop_lon": -79.540513
+  },
+  "43204": {
+    "stop_id": "43204",
+    "stop_name": "Le Page Crt at Ceramic Rd West Side",
+    "stop_lat": 43.759033,
+    "stop_lon": -79.485522
   }
 }

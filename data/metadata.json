@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T09:07:47.459Z",
+  "generated_at": "2026-06-21T08:55:46.932Z",
   "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
   "versions": [
     {
@@ -54,25 +54,32 @@
     {
       "start_date": "2026-06-18",
       "end_date": "2026-06-20",
-      "folder": ".",
+      "folder": "archive/2026-06-18__S1000532",
       "added_at": "2026-06-18T09:07:47.458Z",
       "feed_version": "S1000532"
+    },
+    {
+      "start_date": "2026-06-21",
+      "end_date": "2026-07-25",
+      "folder": ".",
+      "added_at": "2026-06-21T08:55:46.931Z",
+      "feed_version": "S1000533"
     }
   ],
   "current": {
-    "start_date": "2026-06-18",
-    "end_date": "2026-06-20",
+    "start_date": "2026-06-21",
+    "end_date": "2026-07-25",
     "folder": ".",
-    "feed_version": "S1000532"
+    "feed_version": "S1000533"
   },
   "stats": {
-    "routes": 228,
-    "trips": 98632,
-    "stops": 9089,
-    "shapes": 1393,
-    "stop_times_trips": 98628,
-    "stop_times_route_files": 222,
-    "total_versions": 8
+    "routes": 223,
+    "trips": 126015,
+    "stops": 9070,
+    "shapes": 1327,
+    "stop_times_trips": 126011,
+    "stop_times_route_files": 217,
+    "total_versions": 9
   },
   "stop_times_files": {
     "7": "stop-times-route-7.json",
@@ -268,7 +275,6 @@
     "510": "stop-times-route-510.json",
     "511": "stop-times-route-511.json",
     "512": "stop-times-route-512.json",
-    "830": "stop-times-route-830.json",
     "882": "stop-times-route-882.json",
     "900": "stop-times-route-900.json",
     "902": "stop-times-route-902.json",
@@ -283,14 +289,10 @@
     "935": "stop-times-route-935.json",
     "937": "stop-times-route-937.json",
     "939": "stop-times-route-939.json",
-    "941": "stop-times-route-941.json",
-    "944": "stop-times-route-944.json",
-    "945": "stop-times-route-945.json",
     "952": "stop-times-route-952.json",
     "953": "stop-times-route-953.json",
     "954": "stop-times-route-954.json",
     "960": "stop-times-route-960.json",
-    "968": "stop-times-route-968.json",
     "984": "stop-times-route-984.json",
     "985": "stop-times-route-985.json",
     "986": "stop-times-route-986.json",
