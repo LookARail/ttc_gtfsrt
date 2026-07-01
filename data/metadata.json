@@ -1,14 +1,7 @@
 {
-  "generated_at": "2026-06-26T08:40:55.460Z",
+  "generated_at": "2026-07-01T08:53:08.624Z",
   "source_url": "https://ckan0.cf.opendata.inter.prod-toronto.ca/dataset/bd4809dd-e289-4de8-bbde-c5c00dafbf4f/resource/28514055-d011-4ed7-8bb0-97961dfe2b66/download/SurfaceGTFS.zip",
   "versions": [
-    {
-      "start_date": "2026-03-15",
-      "end_date": "2026-05-02",
-      "folder": "archive/2026-03-15",
-      "added_at": "2026-03-15T00:00:00.000Z",
-      "feed_version": null
-    },
     {
       "start_date": "2026-05-03",
       "end_date": "2026-06-06",
@@ -95,14 +88,21 @@
     },
     {
       "start_date": "2026-06-26",
+      "end_date": "2026-06-30",
+      "folder": "archive/2026-06-26__S1000533",
+      "added_at": "2026-06-26T08:40:55.459Z",
+      "feed_version": "S1000533"
+    },
+    {
+      "start_date": "2026-07-01",
       "end_date": "2026-07-25",
       "folder": ".",
-      "added_at": "2026-06-26T08:40:55.459Z",
+      "added_at": "2026-07-01T08:53:08.621Z",
       "feed_version": "S1000533"
     }
   ],
   "current": {
-    "start_date": "2026-06-26",
+    "start_date": "2026-07-01",
     "end_date": "2026-07-25",
     "folder": ".",
     "feed_version": "S1000533"
