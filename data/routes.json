@@ -1119,25 +1119,11 @@
     "route_type": 3,
     "route_color": "0054a6"
   },
-  "309": {
-    "route_id": "309",
-    "route_short_name": "309",
-    "route_long_name": "Harbourfront",
-    "route_type": 3,
-    "route_color": "0054a6"
-  },
   "310": {
     "route_id": "310",
     "route_short_name": "310",
     "route_long_name": "Spadina",
     "route_type": 0,
-    "route_color": "0054a6"
-  },
-  "311": {
-    "route_id": "311",
-    "route_short_name": "311",
-    "route_long_name": "Bathurst",
-    "route_type": 3,
     "route_color": "0054a6"
   },
   "312": {
