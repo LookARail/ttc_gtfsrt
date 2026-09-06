@@ -3833,12 +3833,6 @@
     "stop_lat": 43.796506,
     "stop_lon": -79.261528
   },
-  "750": {
-    "stop_id": "750",
-    "stop_name": "Oriole Pkwy at College View Ave South Side",
-    "stop_lat": 43.702134,
-    "stop_lon": -79.405063
-  },
   "751": {
     "stop_id": "751",
     "stop_name": "King St East at Parliament St",
@@ -3952,6 +3946,12 @@
     "stop_name": "Islington Ave at Rathburn Rd",
     "stop_lat": 43.662257,
     "stop_lon": -79.530948
+  },
+  "775": {
+    "stop_id": "775",
+    "stop_name": "St Clair Ave West at Old Weston Rd",
+    "stop_lat": 43.673686,
+    "stop_lon": -79.46275
   },
   "777": {
     "stop_id": "777",
@@ -4588,12 +4588,6 @@
     "stop_name": "Progress Ave at Roadway to Centennial College",
     "stop_lat": 43.783526,
     "stop_lon": -79.231618
-  },
-  "897": {
-    "stop_id": "897",
-    "stop_name": "St Clair Ave East at Midland Ave",
-    "stop_lat": 43.71894,
-    "stop_lon": -79.251064
   },
   "898": {
     "stop_id": "898",
@@ -6071,12 +6065,6 @@
     "stop_lat": 43.794789,
     "stop_lon": -79.234821
   },
-  "1188": {
-    "stop_id": "1188",
-    "stop_name": "Gerrard St East at Carlaw Ave",
-    "stop_lat": 43.667717,
-    "stop_lon": -79.342605
-  },
   "1189": {
     "stop_id": "1189",
     "stop_name": "630 The East Mall",
@@ -6118,6 +6106,12 @@
     "stop_name": "Leslie St at Lawrence Ave East North Side",
     "stop_lat": 43.735046,
     "stop_lon": -79.355901
+  },
+  "1198": {
+    "stop_id": "1198",
+    "stop_name": "Lawrence Ave East at Port Union Rd",
+    "stop_lat": 43.779434,
+    "stop_lon": -79.136915
   },
   "1199": {
     "stop_id": "1199",
@@ -6394,6 +6388,12 @@
     "stop_name": "Warden Ave at Ellesmere Rd",
     "stop_lat": 43.760997,
     "stop_lon": -79.300528
+  },
+  "1251": {
+    "stop_id": "1251",
+    "stop_name": "St Clair Ave West at Laughton Ave",
+    "stop_lat": 43.674577,
+    "stop_lon": -79.45772
   },
   "1252": {
     "stop_id": "1252",
@@ -8356,12 +8356,6 @@
     "stop_name": "Brimley Rd at Port Royal Trail (South)",
     "stop_lat": 43.821421,
     "stop_lon": -79.284532
-  },
-  "1627": {
-    "stop_id": "1627",
-    "stop_name": "Kingston Rd at Sharpe St",
-    "stop_lat": 43.706529,
-    "stop_lon": -79.25137
   },
   "1628": {
     "stop_id": "1628",
@@ -11549,12 +11543,6 @@
     "stop_lat": 43.757245,
     "stop_lon": -79.238096
   },
-  "2257": {
-    "stop_id": "2257",
-    "stop_name": "Pape Ave at Cosburn Ave",
-    "stop_lat": 43.689497,
-    "stop_lon": -79.348949
-  },
   "2258": {
     "stop_id": "2258",
     "stop_name": "Pharmacy Ave at St Clair Ave East",
@@ -11957,6 +11945,12 @@
     "stop_lat": 43.670661,
     "stop_lon": -79.453929
   },
+  "2350": {
+    "stop_id": "2350",
+    "stop_name": "St Clair Ave West at Dufferin St",
+    "stop_lat": 43.678072,
+    "stop_lon": -79.442941
+  },
   "2351": {
     "stop_id": "2351",
     "stop_name": "SWEENEY DR AT VICTORIA PARK AVE WEST SIDE",
@@ -12304,6 +12298,12 @@
     "stop_name": "Brimley Rd at Mandarin Rd",
     "stop_lat": 43.722455,
     "stop_lon": -79.241999
+  },
+  "2422": {
+    "stop_id": "2422",
+    "stop_name": "Sunrise Ave at Victoria Park Ave West Side",
+    "stop_lat": 43.719571,
+    "stop_lon": -79.30186
   },
   "2423": {
     "stop_id": "2423",
@@ -12701,12 +12701,6 @@
     "stop_lat": 43.714457,
     "stop_lon": -79.359905
   },
-  "2502": {
-    "stop_id": "2502",
-    "stop_name": "Rockcliffe Blvd at Corbett Ave",
-    "stop_lat": 43.671799,
-    "stop_lon": -79.487262
-  },
   "2505": {
     "stop_id": "2505",
     "stop_name": "Nightstar Rd at Cranberry Dr",
@@ -13007,6 +13001,12 @@
     "stop_lat": 43.751811,
     "stop_lon": -79.233421
   },
+  "2563": {
+    "stop_id": "2563",
+    "stop_name": "Port Union Rd at Lawrence Ave East",
+    "stop_lat": 43.780253,
+    "stop_lon": -79.137057
+  },
   "2564": {
     "stop_id": "2564",
     "stop_name": "Cosburn Ave at Roosevelt Rd West Side",
@@ -13060,6 +13060,12 @@
     "stop_name": "King St West at Dowling Ave",
     "stop_lat": 43.636773,
     "stop_lon": -79.438379
+  },
+  "2575": {
+    "stop_id": "2575",
+    "stop_name": "St Clair Ave West at Silverthorn Ave",
+    "stop_lat": 43.67433,
+    "stop_lon": -79.459897
   },
   "2576": {
     "stop_id": "2576",
@@ -13475,6 +13481,12 @@
     "stop_lat": 43.658144,
     "stop_lon": -79.386788
   },
+  "2654": {
+    "stop_id": "2654",
+    "stop_name": "St Clair Ave West at Weston Rd/ Keele St West Side",
+    "stop_lat": 43.672509,
+    "stop_lon": -79.46824
+  },
   "2655": {
     "stop_id": "2655",
     "stop_name": "Southwood Dr at Glen Ames",
@@ -13859,6 +13871,12 @@
     "stop_lat": 43.685252,
     "stop_lon": -79.315142
   },
+  "2728": {
+    "stop_id": "2728",
+    "stop_name": "Princes' Gates Loop at Canada Blvd - CNE East Entrance",
+    "stop_lat": 43.635575,
+    "stop_lon": -79.409889
+  },
   "2729": {
     "stop_id": "2729",
     "stop_name": "Warden Ave at Clegg Rd",
@@ -13876,6 +13894,12 @@
     "stop_name": "Staines Rd at Palk Lane North Side",
     "stop_lat": 43.840107,
     "stop_lon": -79.231969
+  },
+  "2733": {
+    "stop_id": "2733",
+    "stop_name": "Manitoba Dr at Nova Scotia Ave",
+    "stop_lat": 43.635201,
+    "stop_lon": -79.418839
   },
   "2734": {
     "stop_id": "2734",
@@ -13900,6 +13924,12 @@
     "stop_name": "Kingston Rd at Choiceland Blvd",
     "stop_lat": 43.786936,
     "stop_lon": -79.164855
+  },
+  "2739": {
+    "stop_id": "2739",
+    "stop_name": "Manitoba Dr at Quebec St",
+    "stop_lat": 43.63344,
+    "stop_lon": -79.421804
   },
   "2740": {
     "stop_id": "2740",
@@ -14158,6 +14188,18 @@
     "stop_name": "Fleet St at Bastion St",
     "stop_lat": 43.63585,
     "stop_lon": -79.403771
+  },
+  "2811": {
+    "stop_id": "2811",
+    "stop_name": "Saskatchewan Rd at Dufferin St East Side",
+    "stop_lat": 43.632643,
+    "stop_lon": -79.424278
+  },
+  "2815": {
+    "stop_id": "2815",
+    "stop_name": "Saskatchewan Rd at Dufferin St",
+    "stop_lat": 43.632771,
+    "stop_lon": -79.424659
   },
   "2819": {
     "stop_id": "2819",
@@ -14422,6 +14464,12 @@
     "stop_name": "Carrier Dr at Humber College Blvd",
     "stop_lat": 43.738033,
     "stop_lon": -79.610213
+  },
+  "3692": {
+    "stop_id": "3692",
+    "stop_name": "Nunavut Rd - Horse Palace",
+    "stop_lat": 43.634729,
+    "stop_lon": -79.416461
   },
   "3695": {
     "stop_id": "3695",
@@ -14938,12 +14986,6 @@
     "stop_name": "Kennedy Station at Bus Bay 4",
     "stop_lat": 43.732361,
     "stop_lon": -79.26374
-  },
-  "3807": {
-    "stop_id": "3807",
-    "stop_name": "Kipling Station at Bus Bay 1",
-    "stop_lat": 43.637209,
-    "stop_lon": -79.536117
   },
   "3808": {
     "stop_id": "3808",
@@ -15785,65 +15827,23 @@
     "stop_lat": 43.667591,
     "stop_lon": -79.489328
   },
+  "3993": {
+    "stop_id": "3993",
+    "stop_name": "Princes' Blvd at Newfoundland Rd West Side - Enercare Centre",
+    "stop_lat": 43.634121,
+    "stop_lon": -79.411893
+  },
   "3995": {
     "stop_id": "3995",
     "stop_name": "St Clair Ave West at Lansdowne Ave West Side",
     "stop_lat": 43.676186,
     "stop_lon": -79.451121
   },
-  "3996": {
-    "stop_id": "3996",
-    "stop_name": "St Clair Ave West at Caledonia Rd East Side",
-    "stop_lat": 43.675437,
-    "stop_lon": -79.454201
-  },
-  "3997": {
-    "stop_id": "3997",
-    "stop_name": "St Clair Ave West at Caledonia Rd West Side",
-    "stop_lat": 43.675275,
-    "stop_lon": -79.455281
-  },
-  "3998": {
-    "stop_id": "3998",
-    "stop_name": "St Clair Ave West at Laughton Ave East Side",
-    "stop_lat": 43.67479,
-    "stop_lon": -79.457079
-  },
-  "3999": {
-    "stop_id": "3999",
-    "stop_name": "St Clair Ave West at Laughton Ave West Side",
-    "stop_lat": 43.674639,
-    "stop_lon": -79.458176
-  },
-  "4000": {
-    "stop_id": "4000",
-    "stop_name": "St Clair Ave West at Hounslow Heath Rd East Side",
-    "stop_lat": 43.674274,
-    "stop_lon": -79.459436
-  },
-  "4001": {
-    "stop_id": "4001",
-    "stop_name": "St Clair Ave West at Silverthorn Ave West Side",
-    "stop_lat": 43.674107,
-    "stop_lon": -79.460547
-  },
-  "4002": {
-    "stop_id": "4002",
-    "stop_name": "St Clair Ave West at Old Weston Rd East Side",
-    "stop_lat": 43.673599,
-    "stop_lon": -79.462439
-  },
   "4003": {
     "stop_id": "4003",
     "stop_name": "St Clair Ave West at Old Weston Rd West Side",
     "stop_lat": 43.673427,
     "stop_lon": -79.463578
-  },
-  "4004": {
-    "stop_id": "4004",
-    "stop_name": "St Clair Ave West at Keele St/ Weston Rd",
-    "stop_lat": 43.672451,
-    "stop_lon": -79.467842
   },
   "4005": {
     "stop_id": "4005",
@@ -16205,6 +16205,12 @@
     "stop_lat": 43.710643,
     "stop_lon": -79.521041
   },
+  "4077": {
+    "stop_id": "4077",
+    "stop_name": "Kipling Station at Bus Bay 10",
+    "stop_lat": 43.638467,
+    "stop_lon": -79.534689
+  },
   "4078": {
     "stop_id": "4078",
     "stop_name": "WILSON STATION AT LOWER PLATFORM BUS BAY 7",
@@ -16222,12 +16228,6 @@
     "stop_name": "RONCESVALLES AVE AT QUEEN ST WEST NORTH SIDE",
     "stop_lat": 43.639232,
     "stop_lon": -79.44617
-  },
-  "4082": {
-    "stop_id": "4082",
-    "stop_name": "St Clair Ave West at Old Stock Yards Rd",
-    "stop_lat": 43.671859,
-    "stop_lon": -79.470488
   },
   "4083": {
     "stop_id": "4083",
@@ -16342,6 +16342,12 @@
     "stop_name": "Jetliner Rd at Airport Rd South Side",
     "stop_lat": 43.685321,
     "stop_lon": -79.607296
+  },
+  "4106": {
+    "stop_id": "4106",
+    "stop_name": "Pape Station at Bus Bay 1",
+    "stop_lat": 43.680188,
+    "stop_lon": -79.344969
   },
   "4107": {
     "stop_id": "4107",
@@ -16486,6 +16492,12 @@
     "stop_name": "Bathurst St at Queen St West",
     "stop_lat": 43.64709,
     "stop_lon": -79.403831
+  },
+  "4144": {
+    "stop_id": "4144",
+    "stop_name": "Manitoba Dr at Saskatchewan Rd",
+    "stop_lat": 43.632907,
+    "stop_lon": -79.422304
   },
   "4146": {
     "stop_id": "4146",
@@ -16954,12 +16966,6 @@
     "stop_name": "Princes' Blvd at Strachan Ave",
     "stop_lat": 43.635095,
     "stop_lon": -79.408568
-  },
-  "4264": {
-    "stop_id": "4264",
-    "stop_name": "Fleet St at Fort York Blvd",
-    "stop_lat": 43.636282,
-    "stop_lon": -79.407391
   },
   "4265": {
     "stop_id": "4265",
@@ -17843,6 +17849,12 @@
     "stop_lat": 43.780678,
     "stop_lon": -79.130154
   },
+  "4510": {
+    "stop_id": "4510",
+    "stop_name": "Earlscourt Loop at St Clair Ave West",
+    "stop_lat": 43.675983,
+    "stop_lon": -79.451027
+  },
   "4511": {
     "stop_id": "4511",
     "stop_name": "Long Branch Loop",
@@ -18289,7 +18301,7 @@
   },
   "4613": {
     "stop_id": "4613",
-    "stop_name": "Pape Ave at Lipton Ave North Side",
+    "stop_name": "Pape Station at Temporary Bus Bay 3",
     "stop_lat": 43.679891,
     "stop_lon": -79.345139
   },
@@ -18491,6 +18503,12 @@
     "stop_lat": 43.735579,
     "stop_lon": -79.594631
   },
+  "4674": {
+    "stop_id": "4674",
+    "stop_name": "St Clair Ave West at Keele St/ Weston Rd",
+    "stop_lat": 43.672376,
+    "stop_lon": -79.467746
+  },
   "4675": {
     "stop_id": "4675",
     "stop_name": "Crescent Rd at South Dr (West)",
@@ -18544,6 +18562,12 @@
     "stop_name": "Bloor St West at Markland Dr (East) East Side",
     "stop_lat": 43.633599,
     "stop_lon": -79.570302
+  },
+  "4685": {
+    "stop_id": "4685",
+    "stop_name": "St Clair Ave West at Old Weston Rd",
+    "stop_lat": 43.673441,
+    "stop_lon": -79.463154
   },
   "4686": {
     "stop_id": "4686",
@@ -19036,6 +19060,18 @@
     "stop_name": "St Clair Ave West at Caledonia Rd",
     "stop_lat": 43.675536,
     "stop_lon": -79.454363
+  },
+  "4789": {
+    "stop_id": "4789",
+    "stop_name": "St Clair Ave West at Gunns Rd",
+    "stop_lat": 43.671925,
+    "stop_lon": -79.470925
+  },
+  "4790": {
+    "stop_id": "4790",
+    "stop_name": "St Clair Ave West at Lansdowne Ave",
+    "stop_lat": 43.676091,
+    "stop_lon": -79.450893
   },
   "4791": {
     "stop_id": "4791",
@@ -19661,12 +19697,6 @@
     "stop_lat": 43.695546,
     "stop_lon": -79.340081
   },
-  "4913": {
-    "stop_id": "4913",
-    "stop_name": "Duncan Mill Rd at Valleybrook Dr",
-    "stop_lat": 43.761944,
-    "stop_lon": -79.353465
-  },
   "4914": {
     "stop_id": "4914",
     "stop_name": "Lawrence Ave East at Leslie St West Side",
@@ -19721,12 +19751,6 @@
     "stop_lat": 43.663187,
     "stop_lon": -79.401875
   },
-  "4929": {
-    "stop_id": "4929",
-    "stop_name": "South Service Rd at Transway Cres",
-    "stop_lat": 43.732636,
-    "stop_lon": -79.264907
-  },
   "4930": {
     "stop_id": "4930",
     "stop_name": "RONCESVALLES AVE AT FERMANAGH AVE",
@@ -19774,12 +19798,6 @@
     "stop_name": "Elmhurst Dr at Muncey Ave",
     "stop_lat": 43.724516,
     "stop_lon": -79.553251
-  },
-  "4940": {
-    "stop_id": "4940",
-    "stop_name": "Pharmacy Ave at Dolphin Dr North Side",
-    "stop_lat": 43.700332,
-    "stop_lon": -79.286721
   },
   "4941": {
     "stop_id": "4941",
@@ -19864,6 +19882,12 @@
     "stop_name": "Meadowvale Rd at Generation Blvd",
     "stop_lat": 43.804115,
     "stop_lon": -79.168529
+  },
+  "4957": {
+    "stop_id": "4957",
+    "stop_name": "Carlton St at Church St",
+    "stop_lat": 43.661975,
+    "stop_lon": -79.37919
   },
   "4958": {
     "stop_id": "4958",
@@ -22775,12 +22799,6 @@
     "stop_lat": 43.813872,
     "stop_lon": -79.313644
   },
-  "5522": {
-    "stop_id": "5522",
-    "stop_name": "Brimley Rd at Dorcot Ave South Side",
-    "stop_lat": 43.758728,
-    "stop_lon": -79.257178
-  },
   "5523": {
     "stop_id": "5523",
     "stop_name": "Finch Ave East at Alamosa Dr",
@@ -23609,6 +23627,12 @@
     "stop_lat": 43.670832,
     "stop_lon": -79.475535
   },
+  "5688": {
+    "stop_id": "5688",
+    "stop_name": "Sunrise Ave at O'Connor Dr",
+    "stop_lat": 43.719177,
+    "stop_lon": -79.303662
+  },
   "5689": {
     "stop_id": "5689",
     "stop_name": "Opposite 519 Kennedy Rd (Cemetery)",
@@ -23656,6 +23680,12 @@
     "stop_name": "Van Horne Ave at Lucifer Dr",
     "stop_lat": 43.787545,
     "stop_lon": -79.337469
+  },
+  "5699": {
+    "stop_id": "5699",
+    "stop_name": "St Clair Ave West at Northcliffe Blvd",
+    "stop_lat": 43.678272,
+    "stop_lon": -79.440957
   },
   "5700": {
     "stop_id": "5700",
@@ -24653,6 +24683,12 @@
     "stop_lat": 43.700197,
     "stop_lon": -79.387156
   },
+  "5908": {
+    "stop_id": "5908",
+    "stop_name": "St Clair Ave West at Glenholme Ave",
+    "stop_lat": 43.678747,
+    "stop_lon": -79.438835
+  },
   "5909": {
     "stop_id": "5909",
     "stop_name": "Main St at Benlamond Ave",
@@ -24874,6 +24910,12 @@
     "stop_name": "Moore Park Ave at Fargo Ave",
     "stop_lat": 43.792727,
     "stop_lon": -79.424353
+  },
+  "5954": {
+    "stop_id": "5954",
+    "stop_name": "St Clair Ave West at Northcliffe Blvd",
+    "stop_lat": 43.67855,
+    "stop_lon": -79.440752
   },
   "5956": {
     "stop_id": "5956",
@@ -26086,6 +26128,12 @@
     "stop_name": "Finch Ave East at Bridletowne Circle (East)",
     "stop_lat": 43.797371,
     "stop_lon": -79.312495
+  },
+  "6190": {
+    "stop_id": "6190",
+    "stop_name": "St Clair Ave West at Hounslow Heath Rd",
+    "stop_lat": 43.674054,
+    "stop_lon": -79.460091
   },
   "6191": {
     "stop_id": "6191",
@@ -28147,7 +28195,7 @@
   },
   "6598": {
     "stop_id": "6598",
-    "stop_name": "St Clair Ave East at Warden Ave West Side",
+    "stop_name": "Warden Station at Temporary Bus Bay 2",
     "stop_lat": 43.712074,
     "stop_lon": -79.281556
   },
@@ -28324,6 +28372,12 @@
     "stop_name": "College St at Borden St",
     "stop_lat": 43.657064,
     "stop_lon": -79.405017
+  },
+  "6634": {
+    "stop_id": "6634",
+    "stop_name": "St Clair Ave West at Dufferin St",
+    "stop_lat": 43.677782,
+    "stop_lon": -79.443177
   },
   "6635": {
     "stop_id": "6635",
@@ -31007,6 +31061,12 @@
     "stop_lat": 43.807581,
     "stop_lon": -79.45017
   },
+  "7146": {
+    "stop_id": "7146",
+    "stop_name": "St Clair Ave West at Earlscourt Ave",
+    "stop_lat": 43.676826,
+    "stop_lon": -79.4475
+  },
   "7147": {
     "stop_id": "7147",
     "stop_name": "Broadview Ave at Wolfrey Ave",
@@ -32615,6 +32675,12 @@
     "stop_lat": 43.666757,
     "stop_lon": -79.587469
   },
+  "7463": {
+    "stop_id": "7463",
+    "stop_name": "Manitoba Dr at Nova Scotia Ave West Side",
+    "stop_lat": 43.635338,
+    "stop_lon": -79.419168
+  },
   "7464": {
     "stop_id": "7464",
     "stop_name": "Don Mills Rd at Leith Hill Rd North Side",
@@ -33197,12 +33263,6 @@
     "stop_lat": 43.719441,
     "stop_lon": -79.603448
   },
-  "7577": {
-    "stop_id": "7577",
-    "stop_name": "Millwood Rd at Overlea Blvd South Side",
-    "stop_lat": 43.701557,
-    "stop_lon": -79.352492
-  },
   "7578": {
     "stop_id": "7578",
     "stop_name": "Pharmacy Ave at Denton Ave North Side",
@@ -33496,12 +33556,6 @@
     "stop_name": "Mt Pleasant Rd at Belsize Dr",
     "stop_lat": 43.702367,
     "stop_lon": -79.387635
-  },
-  "7635": {
-    "stop_id": "7635",
-    "stop_name": "Attwell Dr at Carlingview Dr",
-    "stop_lat": 43.703226,
-    "stop_lon": -79.603128
   },
   "7636": {
     "stop_id": "7636",
@@ -33994,12 +34048,6 @@
     "stop_name": "Bloor St West at Aberfoyle Cres",
     "stop_lat": 43.64582,
     "stop_lon": -79.51879
-  },
-  "7735": {
-    "stop_id": "7735",
-    "stop_name": "452 Attwell Dr",
-    "stop_lat": 43.704144,
-    "stop_lon": -79.609535
   },
   "7736": {
     "stop_id": "7736",
@@ -34961,12 +35009,6 @@
     "stop_lat": 43.717052,
     "stop_lon": -79.39382
   },
-  "7929": {
-    "stop_id": "7929",
-    "stop_name": "Ranee Ave at Flemington Rd - Yorkdale Station",
-    "stop_lat": 43.723464,
-    "stop_lon": -79.448054
-  },
   "7930": {
     "stop_id": "7930",
     "stop_name": "Varna Dr at Flemington Rd",
@@ -35482,6 +35524,12 @@
     "stop_name": "Clonmore Dr at Queensbury Ave West Side",
     "stop_lat": 43.690375,
     "stop_lon": -79.277083
+  },
+  "8032": {
+    "stop_id": "8032",
+    "stop_name": "St Clair Ave West at Caledonia Park Rd",
+    "stop_lat": 43.675211,
+    "stop_lon": -79.454886
   },
   "8033": {
     "stop_id": "8033",
@@ -37649,6 +37697,12 @@
     "stop_lat": 43.714109,
     "stop_lon": -79.428447
   },
+  "8461": {
+    "stop_id": "8461",
+    "stop_name": "St Clair Ave West at Glenholme Ave",
+    "stop_lat": 43.67905,
+    "stop_lon": -79.438527
+  },
   "8462": {
     "stop_id": "8462",
     "stop_name": "The West Mall at Civic Centre Crt South Side",
@@ -39034,12 +39088,6 @@
     "stop_name": "1103 Birchmount Rd",
     "stop_lat": 43.73706,
     "stop_lon": -79.280486
-  },
-  "8729": {
-    "stop_id": "8729",
-    "stop_name": "Willowdale Ave at Cummer Ave South Side",
-    "stop_lat": 43.788361,
-    "stop_lon": -79.409953
   },
   "8730": {
     "stop_id": "8730",
@@ -41201,12 +41249,6 @@
     "stop_lat": 43.680249,
     "stop_lon": -79.475239
   },
-  "9160": {
-    "stop_id": "9160",
-    "stop_name": "Attwell Dr at Disco Rd North Side",
-    "stop_lat": 43.702454,
-    "stop_lon": -79.609324
-  },
   "9161": {
     "stop_id": "9161",
     "stop_name": "Atkinson Ave at Clark Ave West",
@@ -43139,6 +43181,18 @@
     "stop_lat": 43.637372,
     "stop_lon": -79.50708
   },
+  "9536": {
+    "stop_id": "9536",
+    "stop_name": "St Clair Ave West at Lansdowne Ave",
+    "stop_lat": 43.676419,
+    "stop_lon": -79.450412
+  },
+  "9537": {
+    "stop_id": "9537",
+    "stop_name": "St Clair Ave West at Earlscourt Ave",
+    "stop_lat": 43.677094,
+    "stop_lon": -79.447319
+  },
   "9538": {
     "stop_id": "9538",
     "stop_name": "Markham Rd at Brimorton Dr",
@@ -43805,12 +43859,6 @@
     "stop_lat": 43.684794,
     "stop_lon": -79.352053
   },
-  "9670": {
-    "stop_id": "9670",
-    "stop_name": "Brimley Rd at Dorcot Ave",
-    "stop_lat": 43.758675,
-    "stop_lon": -79.256852
-  },
   "9671": {
     "stop_id": "9671",
     "stop_name": "Kingston Rd at Brookside Dr",
@@ -43943,6 +43991,12 @@
     "stop_lat": 43.708984,
     "stop_lon": -79.296257
   },
+  "9697": {
+    "stop_id": "9697",
+    "stop_name": "St Clair Ave West at Laughton Ave",
+    "stop_lat": 43.67485,
+    "stop_lon": -79.457543
+  },
   "9698": {
     "stop_id": "9698",
     "stop_name": "Annette St at Durie St",
@@ -44050,12 +44104,6 @@
     "stop_name": "Neilson Rd at Oakmeadow Blvd (South)",
     "stop_lat": 43.79014,
     "stop_lon": -79.211951
-  },
-  "9721": {
-    "stop_id": "9721",
-    "stop_name": "Carlaw Ave at Gerrard St East North Side",
-    "stop_lat": 43.668143,
-    "stop_lon": -79.342863
   },
   "9722": {
     "stop_id": "9722",
@@ -45400,6 +45448,12 @@
     "stop_name": "Gerrard St East at Clonmore Dr West Side",
     "stop_lat": 43.688594,
     "stop_lon": -79.279092
+  },
+  "9985": {
+    "stop_id": "9985",
+    "stop_name": "Commissioners St at Bouchette St",
+    "stop_lat": 43.650492,
+    "stop_lon": -79.340069
   },
   "9986": {
     "stop_id": "9986",
@@ -49337,6 +49391,12 @@
     "stop_lat": 43.683321,
     "stop_lon": -79.311673
   },
+  "11124": {
+    "stop_id": "11124",
+    "stop_name": "St Basil The Great College School",
+    "stop_lat": 43.726807,
+    "stop_lon": -79.533952
+  },
   "11125": {
     "stop_id": "11125",
     "stop_name": "Dundas St West at Bay St",
@@ -49534,6 +49594,12 @@
     "stop_name": "Hospital Rd at Wellness Way East Side - Sunnybrook Main Entr",
     "stop_lat": 43.72178,
     "stop_lon": -79.376853
+  },
+  "11195": {
+    "stop_id": "11195",
+    "stop_name": "Hospital Rd at Wellness Way East Side - Sunnybrook Main Entr",
+    "stop_lat": 43.72182,
+    "stop_lon": -79.376728
   },
   "11204": {
     "stop_id": "11204",
@@ -50135,6 +50201,54 @@
     "stop_lat": 43.74768,
     "stop_lon": -79.284634
   },
+  "18304": {
+    "stop_id": "18304",
+    "stop_name": "Mill Rd at Markland Dr North Side - Silverthorne C.I.",
+    "stop_lat": 43.636801,
+    "stop_lon": -79.580754
+  },
+  "18305": {
+    "stop_id": "18305",
+    "stop_name": "Saint John Paul II S.S.",
+    "stop_lat": 43.790618,
+    "stop_lon": -79.199904
+  },
+  "18306": {
+    "stop_id": "18306",
+    "stop_name": "Michael Power / St Joseph H.S.",
+    "stop_lat": 43.65916,
+    "stop_lon": -79.58283
+  },
+  "18307": {
+    "stop_id": "18307",
+    "stop_name": "1107 Avenue Rd - Marshall McLuhan Secondary School",
+    "stop_lat": 43.708037,
+    "stop_lon": -79.409118
+  },
+  "18308": {
+    "stop_id": "18308",
+    "stop_name": "Fenelon Loop at Graydon Hall Dr",
+    "stop_lat": 43.763733,
+    "stop_lon": -79.339161
+  },
+  "18311": {
+    "stop_id": "18311",
+    "stop_name": "Michael Power / St Joseph H.S.",
+    "stop_lat": 43.659497,
+    "stop_lon": -79.582992
+  },
+  "18312": {
+    "stop_id": "18312",
+    "stop_name": "Michael Power / St Joseph H.S.",
+    "stop_lat": 43.659312,
+    "stop_lon": -79.582914
+  },
+  "18313": {
+    "stop_id": "18313",
+    "stop_name": "127 Victoria Park Ave - Neil McNeil Secondary School",
+    "stop_lat": 43.67935,
+    "stop_lon": -79.283367
+  },
   "18358": {
     "stop_id": "18358",
     "stop_name": "Kingston Rd at St Clair Ave East",
@@ -50476,12 +50590,6 @@
     "stop_name": "Keele St at Bloor St West - Keele Station",
     "stop_lat": 43.654873,
     "stop_lon": -79.460164
-  },
-  "18751": {
-    "stop_id": "18751",
-    "stop_name": "University Ave at Adelaide St West",
-    "stop_lat": 43.648956,
-    "stop_lon": -79.385771
   },
   "18759": {
     "stop_id": "18759",
@@ -51461,6 +51569,12 @@
     "stop_lat": 43.731343,
     "stop_lon": -79.526097
   },
+  "34741": {
+    "stop_id": "34741",
+    "stop_name": "Princes Blvd at Ontario Dr",
+    "stop_lat": 43.6326,
+    "stop_lon": -79.4199
+  },
   "34744": {
     "stop_id": "34744",
     "stop_name": "Lower Sherbourne St at Queens Quay East",
@@ -51472,6 +51586,18 @@
     "stop_name": "326 Humber College Blvd",
     "stop_lat": 43.736751,
     "stop_lon": -79.610184
+  },
+  "34800": {
+    "stop_id": "34800",
+    "stop_name": "Princes' Blvd at Ontario Dr",
+    "stop_lat": 43.632147,
+    "stop_lon": -79.419285
+  },
+  "34801": {
+    "stop_id": "34801",
+    "stop_name": "Nova Scotia Ave at Manitoba Dr",
+    "stop_lat": 43.635203,
+    "stop_lon": -79.41849
   },
   "34802": {
     "stop_id": "34802",
@@ -51568,12 +51694,6 @@
     "stop_name": "Kingston Rd at Highland Creek Overpass",
     "stop_lat": 43.78471,
     "stop_lon": -79.16865
-  },
-  "36122": {
-    "stop_id": "36122",
-    "stop_name": "Eglinton Ave East at South Service Rd East Side",
-    "stop_lat": 43.732759,
-    "stop_lon": -79.265317
   },
   "36126": {
     "stop_id": "36126",
@@ -51821,24 +51941,6 @@
     "stop_lat": 43.68768,
     "stop_lon": -79.392714
   },
-  "40033": {
-    "stop_id": "40033",
-    "stop_name": "Liberty St at Atlantic Ave East Side",
-    "stop_lat": 43.63833,
-    "stop_lon": -79.420123
-  },
-  "40034": {
-    "stop_id": "40034",
-    "stop_name": "East Liberty St at Lynn Williams St East Side",
-    "stop_lat": 43.638546,
-    "stop_lon": -79.416824
-  },
-  "40035": {
-    "stop_id": "40035",
-    "stop_name": "East Liberty St at Pirandello St",
-    "stop_lat": 43.638583,
-    "stop_lon": -79.414086
-  },
   "40036": {
     "stop_id": "40036",
     "stop_name": "Kennedy Station at Bus Bay 11",
@@ -51922,6 +52024,12 @@
     "stop_name": "Kennedy Station at Bus Bay 14 (Platform B)",
     "stop_lat": 43.732067,
     "stop_lon": -79.263249
+  },
+  "41051": {
+    "stop_id": "41051",
+    "stop_name": "St. Clair Ave West at Cloverdale Rd",
+    "stop_lat": 43.673996,
+    "stop_lon": -79.461403
   },
   "41052": {
     "stop_id": "41052",
@@ -52091,6 +52199,12 @@
     "stop_lat": 43.646167,
     "stop_lon": -79.350318
   },
+  "42348": {
+    "stop_id": "42348",
+    "stop_name": "King St West at The Queensway",
+    "stop_lat": 43.638355,
+    "stop_lon": -79.445925
+  },
   "42349": {
     "stop_id": "42349",
     "stop_name": "Bathurst St at Nassau St - Toronto Western Hospital",
@@ -52102,12 +52216,6 @@
     "stop_name": "Black Creek Dr at Eglinton Ave West",
     "stop_lat": 43.68857,
     "stop_lon": -79.483056
-  },
-  "42353": {
-    "stop_id": "42353",
-    "stop_name": "Dufferin St at Liberty St North Side",
-    "stop_lat": 43.637244,
-    "stop_lon": -79.426582
   },
   "42354": {
     "stop_id": "42354",
@@ -52180,12 +52288,6 @@
     "stop_name": "Queen St East at Wineva Ave East Side",
     "stop_lat": 43.671048,
     "stop_lon": -79.295031
-  },
-  "42372": {
-    "stop_id": "42372",
-    "stop_name": "Pape Ave at Lipton Ave",
-    "stop_lat": 43.679709,
-    "stop_lon": -79.345236
   },
   "42373": {
     "stop_id": "42373",
@@ -52565,29 +52667,11 @@
     "stop_lat": 43.650603,
     "stop_lon": -79.38422
   },
-  "42502": {
-    "stop_id": "42502",
-    "stop_name": "Warden Station at Temporary Bus Bay 1",
-    "stop_lat": 43.709817,
-    "stop_lon": -79.280007
-  },
-  "42504": {
-    "stop_id": "42504",
-    "stop_name": "Warden Station at Temporary Bus Bay 4",
-    "stop_lat": 43.710364,
-    "stop_lon": -79.279471
-  },
-  "42505": {
-    "stop_id": "42505",
-    "stop_name": "Warden Station at Temporary Bus Bay 5",
-    "stop_lat": 43.710463,
-    "stop_lon": -79.280181
-  },
   "42506": {
     "stop_id": "42506",
-    "stop_name": "Warden Station at Temporary Bus Bay 6",
-    "stop_lat": 43.710723,
-    "stop_lon": -79.280343
+    "stop_name": "Warden Station at Temporary Bus Bay 5",
+    "stop_lat": 43.710346,
+    "stop_lon": -79.280206
   },
   "42507": {
     "stop_id": "42507",
@@ -52597,7 +52681,7 @@
   },
   "42508": {
     "stop_id": "42508",
-    "stop_name": "Warden Station at Temporary Bus Bay 8",
+    "stop_name": "Warden Station at Temporary Bus Bay 3",
     "stop_lat": 43.711198,
     "stop_lon": -79.280529
   },
@@ -52654,12 +52738,6 @@
     "stop_name": "Dufferin St at Brandon Ave",
     "stop_lat": 43.67053,
     "stop_lon": -79.440005
-  },
-  "42526": {
-    "stop_id": "42526",
-    "stop_name": "Warden Station at Temporary Bus Bay 3",
-    "stop_lat": 43.710158,
-    "stop_lon": -79.279509
   },
   "42527": {
     "stop_id": "42527",
@@ -53747,6 +53825,12 @@
     "stop_lat": 43.82936,
     "stop_lon": -79.275182
   },
+  "43003": {
+    "stop_id": "43003",
+    "stop_name": "Castleton Ave at Corbett Ave South Side",
+    "stop_lat": 43.671467,
+    "stop_lon": -79.487002
+  },
   "43004": {
     "stop_id": "43004",
     "stop_name": "Royal York Rd at Algoma St",
@@ -53758,6 +53842,12 @@
     "stop_name": "Dundas St West at Cordova Ave East Side",
     "stop_lat": 43.648986,
     "stop_lon": -79.528408
+  },
+  "43006": {
+    "stop_id": "43006",
+    "stop_name": "Pharmacy Ave at Dolphin Dr",
+    "stop_lat": 43.699963,
+    "stop_lon": -79.286549
   },
   "43007": {
     "stop_id": "43007",
@@ -53855,6 +53945,18 @@
     "stop_lat": 43.702918,
     "stop_lon": -79.270835
   },
+  "43023": {
+    "stop_id": "43023",
+    "stop_name": "Duncan Mill Rd at Valleybrook Dr East Side",
+    "stop_lat": 43.761764,
+    "stop_lon": -79.352754
+  },
+  "43024": {
+    "stop_id": "43024",
+    "stop_name": "St Clair Ave East at Midland Ave West Side",
+    "stop_lat": 43.718631,
+    "stop_lon": -79.252181
+  },
   "43025": {
     "stop_id": "43025",
     "stop_name": "Steeles Ave E at McCowan Rd West Side",
@@ -53890,12 +53992,6 @@
     "stop_name": "Port Union Rd at Conference Blvd",
     "stop_lat": 43.786023,
     "stop_lon": -79.139246
-  },
-  "43031": {
-    "stop_id": "43031",
-    "stop_name": "Lawrence Ave East at Port Union Rd",
-    "stop_lat": 43.779626,
-    "stop_lon": -79.136112
   },
   "43032": {
     "stop_id": "43032",
@@ -54311,6 +54407,12 @@
     "stop_lat": 43.755141,
     "stop_lon": -79.24689
   },
+  "43174": {
+    "stop_id": "43174",
+    "stop_name": "Fort York Blvd at Fleet St",
+    "stop_lat": 43.636219,
+    "stop_lon": -79.406729
+  },
   "43175": {
     "stop_id": "43175",
     "stop_name": "Neilson Rd at Crow Trail",
@@ -54478,5 +54580,233 @@
     "stop_name": "Burnhamthrope Rd at Martin Grove Rd",
     "stop_lat": 43.648638,
     "stop_lon": -79.549308
+  },
+  "43219": {
+    "stop_id": "43219",
+    "stop_name": "ISLINGTON AVE. AT STEELES AVE. W.",
+    "stop_lat": 43.764338,
+    "stop_lon": -79.574852
+  },
+  "43220": {
+    "stop_id": "43220",
+    "stop_name": "JANE ST. AT STEELES AVE. W.",
+    "stop_lat": 43.775465,
+    "stop_lon": -79.521717
+  },
+  "43221": {
+    "stop_id": "43221",
+    "stop_name": "KIPLING AVE.AT STEELES AVE.W.",
+    "stop_lat": 43.759602,
+    "stop_lon": -79.589891
+  },
+  "43222": {
+    "stop_id": "43222",
+    "stop_name": "PETER KAISER GT. AT STEELES AVE.W",
+    "stop_lat": 43.774297,
+    "stop_lon": -79.526815
+  },
+  "43223": {
+    "stop_id": "43223",
+    "stop_name": "SIGNET DR. AT STEELES AVE. W.",
+    "stop_lat": 43.770939,
+    "stop_lon": -79.543381
+  },
+  "43224": {
+    "stop_id": "43224",
+    "stop_name": "WESTON RD. AT STEELES AVE. W.",
+    "stop_lat": 43.770275,
+    "stop_lon": -79.546508
+  },
+  "43225": {
+    "stop_id": "43225",
+    "stop_name": "St Clair Station at Bay 3",
+    "stop_lat": 43.688011,
+    "stop_lon": -79.391368
+  },
+  "43226": {
+    "stop_id": "43226",
+    "stop_name": "McNicoll Ave at Milliken Blvd",
+    "stop_lat": 43.812658,
+    "stop_lon": -79.29949
+  },
+  "43227": {
+    "stop_id": "43227",
+    "stop_name": "McNicoll Ave at Milliken Blvd",
+    "stop_lat": 43.81298,
+    "stop_lon": -79.299053
+  },
+  "43228": {
+    "stop_id": "43228",
+    "stop_name": "Toronto Pearson Airport - Viscount Station",
+    "stop_lat": 43.689338,
+    "stop_lon": -79.615752
+  },
+  "43229": {
+    "stop_id": "43229",
+    "stop_name": "Willowdale Ave at Cummer Ave",
+    "stop_lat": 43.788752,
+    "stop_lon": -79.410063
+  },
+  "43230": {
+    "stop_id": "43230",
+    "stop_name": "Brimley Rd at Dorcot Ave North Side",
+    "stop_lat": 43.759265,
+    "stop_lon": -79.257132
+  },
+  "43231": {
+    "stop_id": "43231",
+    "stop_name": "Brimley Rd at Dorcot Ave",
+    "stop_lat": 43.759104,
+    "stop_lon": -79.257319
+  },
+  "43232": {
+    "stop_id": "43232",
+    "stop_name": "Warden Station at Temporary Bus Bay 1",
+    "stop_lat": 43.712541,
+    "stop_lon": -79.278521
+  },
+  "43233": {
+    "stop_id": "43233",
+    "stop_name": "American Dr at Viscount Rd",
+    "stop_lat": 43.691842,
+    "stop_lon": -79.618713
+  },
+  "43234": {
+    "stop_id": "43234",
+    "stop_name": "American Dr at Northam Dr",
+    "stop_lat": 43.695614,
+    "stop_lon": -79.614453
+  },
+  "43235": {
+    "stop_id": "43235",
+    "stop_name": "Northwest Dr at American Dr",
+    "stop_lat": 43.699239,
+    "stop_lon": -79.612336
+  },
+  "43236": {
+    "stop_id": "43236",
+    "stop_name": "Northwest Dr at American Dr",
+    "stop_lat": 43.698729,
+    "stop_lon": -79.611923
+  },
+  "43237": {
+    "stop_id": "43237",
+    "stop_name": "American Dr at Northam Dr",
+    "stop_lat": 43.695156,
+    "stop_lon": -79.615274
+  },
+  "43238": {
+    "stop_id": "43238",
+    "stop_name": "Viscount Rd at American Dr",
+    "stop_lat": 43.691304,
+    "stop_lon": -79.618823
+  },
+  "43239": {
+    "stop_id": "43239",
+    "stop_name": "Millwood Rd at Overlea Blvd",
+    "stop_lat": 43.701839,
+    "stop_lon": -79.353211
+  },
+  "43240": {
+    "stop_id": "43240",
+    "stop_name": "Gerrard St East at Carlaw Ave",
+    "stop_lat": 43.66795,
+    "stop_lon": -79.341655
+  },
+  "43241": {
+    "stop_id": "43241",
+    "stop_name": "Oriole Parkway at College View Ave",
+    "stop_lat": 43.702438,
+    "stop_lon": -79.405213
+  },
+  "43242": {
+    "stop_id": "43242",
+    "stop_name": "Tara Avenue Station",
+    "stop_lat": 43.742683,
+    "stop_lon": -79.267034
+  },
+  "43243": {
+    "stop_id": "43243",
+    "stop_name": "Tara Avenue Station",
+    "stop_lat": 43.742028,
+    "stop_lon": -79.266923
+  },
+  "43244": {
+    "stop_id": "43244",
+    "stop_name": "Aukland Rd at Kipling GO Station",
+    "stop_lat": 43.637837,
+    "stop_lon": -79.537009
+  },
+  "43245": {
+    "stop_id": "43245",
+    "stop_name": "Aukland Rd at Kipling GO Station",
+    "stop_lat": 43.637676,
+    "stop_lon": -79.537108
+  },
+  "43246": {
+    "stop_id": "43246",
+    "stop_name": "Lake Shore Blvd West at Kipling Ave",
+    "stop_lat": 43.598216,
+    "stop_lon": -79.517362
+  },
+  "43247": {
+    "stop_id": "43247",
+    "stop_name": "Aukland Rd at Bloor St West",
+    "stop_lat": 43.64045,
+    "stop_lon": -79.540401
+  },
+  "43248": {
+    "stop_id": "43248",
+    "stop_name": "Marlee Ave at Glencairn Ave",
+    "stop_lat": 43.709272,
+    "stop_lon": -79.443803
+  },
+  "43249": {
+    "stop_id": "43249",
+    "stop_name": "Kingston Rd at Sharpe St West Side",
+    "stop_lat": 43.705743,
+    "stop_lon": -79.251831
+  },
+  "43250": {
+    "stop_id": "43250",
+    "stop_name": "Lawrence East Station",
+    "stop_lat": 43.74964,
+    "stop_lon": -79.269965
+  },
+  "43251": {
+    "stop_id": "43251",
+    "stop_name": "Lawrence East Station",
+    "stop_lat": 43.749381,
+    "stop_lon": -79.270003
+  },
+  "43252": {
+    "stop_id": "43252",
+    "stop_name": "Ellesmere Station",
+    "stop_lat": 43.766819,
+    "stop_lon": -79.27646
+  },
+  "43253": {
+    "stop_id": "43253",
+    "stop_name": "Ellesmere Station",
+    "stop_lat": 43.76647,
+    "stop_lon": -79.276535
+  },
+  "43254": {
+    "stop_id": "43254",
+    "stop_name": "Carlaw Ave at Gerrard St East",
+    "stop_lat": 43.666974,
+    "stop_lon": -79.342366
+  },
+  "43255": {
+    "stop_id": "43255",
+    "stop_name": "Pape Station at Temporary Bus Bay 2",
+    "stop_lat": 43.679808,
+    "stop_lon": -79.344875
+  },
+  "43256": {
+    "stop_id": "43256",
+    "stop_name": "Ranee Ave at Varna Dr West Side",
+    "stop_lat": 43.72392,
+    "stop_lon": -79.44614
   }
 }

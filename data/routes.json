@@ -13,13 +13,6 @@
     "route_type": 3,
     "route_color": "FFFFFF"
   },
-  "3": {
-    "route_id": "3",
-    "route_short_name": "3",
-    "route_long_name": "LINE 3 SHUTTLE BUS",
-    "route_type": 3,
-    "route_color": "FFFFFF"
-  },
   "4": {
     "route_id": "4",
     "route_short_name": "4",
@@ -916,6 +909,13 @@
     "route_type": 3,
     "route_color": "ed1c24"
   },
+  "145": {
+    "route_id": "145",
+    "route_short_name": "145",
+    "route_long_name": "Belfield",
+    "route_type": 3,
+    "route_color": "ed1c24"
+  },
   "149": {
     "route_id": "149",
     "route_short_name": "149",
@@ -1238,6 +1238,13 @@
     "route_type": 3,
     "route_color": "0054a6"
   },
+  "345": {
+    "route_id": "345",
+    "route_short_name": "345",
+    "route_long_name": "Kipling",
+    "route_type": 3,
+    "route_color": "0054a6"
+  },
   "352": {
     "route_id": "352",
     "route_short_name": "352",
@@ -1270,6 +1277,13 @@
     "route_id": "365",
     "route_short_name": "365",
     "route_long_name": "Parliament",
+    "route_type": 3,
+    "route_color": "0054a6"
+  },
+  "373": {
+    "route_id": "373",
+    "route_short_name": "373",
+    "route_long_name": "Royal York",
     "route_type": 3,
     "route_color": "0054a6"
   },
@@ -1350,6 +1364,13 @@
     "route_type": 0,
     "route_color": "ed1c24"
   },
+  "508": {
+    "route_id": "508",
+    "route_short_name": "508",
+    "route_long_name": "Lake Shore",
+    "route_type": 0,
+    "route_color": "ed1c24"
+  },
   "509": {
     "route_id": "509",
     "route_short_name": "509",
@@ -1376,6 +1397,13 @@
     "route_short_name": "512",
     "route_long_name": "St Clair",
     "route_type": 0,
+    "route_color": "ed1c24"
+  },
+  "830": {
+    "route_id": "830",
+    "route_short_name": "830",
+    "route_long_name": "Henry Kelsey - Middlefield",
+    "route_type": 3,
     "route_color": "ed1c24"
   },
   "882": {
@@ -1469,10 +1497,38 @@
     "route_type": 3,
     "route_color": "00a651"
   },
+  "938": {
+    "route_id": "938",
+    "route_short_name": "938",
+    "route_long_name": "Highland Creek Express",
+    "route_type": 3,
+    "route_color": "00a651"
+  },
   "939": {
     "route_id": "939",
     "route_short_name": "939",
     "route_long_name": "Finch Express",
+    "route_type": 3,
+    "route_color": "00a651"
+  },
+  "941": {
+    "route_id": "941",
+    "route_short_name": "941",
+    "route_long_name": "Keele Express",
+    "route_type": 3,
+    "route_color": "00a651"
+  },
+  "944": {
+    "route_id": "944",
+    "route_short_name": "944",
+    "route_long_name": "Kipling South Express",
+    "route_type": 3,
+    "route_color": "00a651"
+  },
+  "945": {
+    "route_id": "945",
+    "route_short_name": "945",
+    "route_long_name": "Kipling Express",
     "route_type": 3,
     "route_color": "00a651"
   },
@@ -1501,6 +1557,13 @@
     "route_id": "960",
     "route_short_name": "960",
     "route_long_name": "Steeles West Express",
+    "route_type": 3,
+    "route_color": "00a651"
+  },
+  "968": {
+    "route_id": "968",
+    "route_short_name": "968",
+    "route_long_name": "Warden Express",
     "route_type": 3,
     "route_color": "00a651"
   },
