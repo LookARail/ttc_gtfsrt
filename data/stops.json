@@ -15053,6 +15053,24 @@
     "stop_lat": 43.724827,
     "stop_lon": -79.402293
   },
+  "3819": {
+    "stop_id": "3819",
+    "stop_name": "Lawrence East Station at Bus Bay 2",
+    "stop_lat": 43.750347,
+    "stop_lon": -79.270358
+  },
+  "3820": {
+    "stop_id": "3820",
+    "stop_name": "Lawrence East Station at Bus Bay 3",
+    "stop_lat": 43.750534,
+    "stop_lon": -79.270435
+  },
+  "3821": {
+    "stop_id": "3821",
+    "stop_name": "Lawrence East Station at Bus Bay 4",
+    "stop_lat": 43.750667,
+    "stop_lon": -79.270497
+  },
   "3822": {
     "stop_id": "3822",
     "stop_name": "Lawrence West Station at Bus Bay 1",
@@ -29002,12 +29020,6 @@
     "stop_name": "Underhill Dr at Shawfield Cres (South)",
     "stop_lat": 43.750167,
     "stop_lon": -79.326233
-  },
-  "6758": {
-    "stop_id": "6758",
-    "stop_name": "Kennedy Rd at Ellesmere Rd",
-    "stop_lat": 43.765595,
-    "stop_lon": -79.280867
   },
   "6760": {
     "stop_id": "6760",
@@ -51971,29 +51983,11 @@
     "stop_lat": 43.691944,
     "stop_lon": -79.465697
   },
-  "41040": {
-    "stop_id": "41040",
-    "stop_name": "Kennedy Rd at Lawrence Ave East East Side",
-    "stop_lat": 43.749958,
-    "stop_lon": -79.274988
-  },
   "41041": {
     "stop_id": "41041",
     "stop_name": "Ellesmere Rd at Midland Ave East Side",
     "stop_lat": 43.767989,
     "stop_lon": -79.270397
-  },
-  "41042": {
-    "stop_id": "41042",
-    "stop_name": "Midland Ave at Ellesmere Rd South Side",
-    "stop_lat": 43.767469,
-    "stop_lon": -79.271159
-  },
-  "41043": {
-    "stop_id": "41043",
-    "stop_name": "Midland Ave at Lawrence Ave East South Side",
-    "stop_lat": 43.750766,
-    "stop_lon": -79.265001
   },
   "41044": {
     "stop_id": "41044",
@@ -54581,42 +54575,6 @@
     "stop_lat": 43.648638,
     "stop_lon": -79.549308
   },
-  "43219": {
-    "stop_id": "43219",
-    "stop_name": "ISLINGTON AVE. AT STEELES AVE. W.",
-    "stop_lat": 43.764338,
-    "stop_lon": -79.574852
-  },
-  "43220": {
-    "stop_id": "43220",
-    "stop_name": "JANE ST. AT STEELES AVE. W.",
-    "stop_lat": 43.775465,
-    "stop_lon": -79.521717
-  },
-  "43221": {
-    "stop_id": "43221",
-    "stop_name": "KIPLING AVE.AT STEELES AVE.W.",
-    "stop_lat": 43.759602,
-    "stop_lon": -79.589891
-  },
-  "43222": {
-    "stop_id": "43222",
-    "stop_name": "PETER KAISER GT. AT STEELES AVE.W",
-    "stop_lat": 43.774297,
-    "stop_lon": -79.526815
-  },
-  "43223": {
-    "stop_id": "43223",
-    "stop_name": "SIGNET DR. AT STEELES AVE. W.",
-    "stop_lat": 43.770939,
-    "stop_lon": -79.543381
-  },
-  "43224": {
-    "stop_id": "43224",
-    "stop_name": "WESTON RD. AT STEELES AVE. W.",
-    "stop_lat": 43.770275,
-    "stop_lon": -79.546508
-  },
   "43225": {
     "stop_id": "43225",
     "stop_name": "St Clair Station at Bay 3",
@@ -54721,13 +54679,13 @@
   },
   "43242": {
     "stop_id": "43242",
-    "stop_name": "Tara Avenue Station",
+    "stop_name": "Tara Avenue",
     "stop_lat": 43.742683,
     "stop_lon": -79.267034
   },
   "43243": {
     "stop_id": "43243",
-    "stop_name": "Tara Avenue Station",
+    "stop_name": "Tara Avenue",
     "stop_lat": 43.742028,
     "stop_lon": -79.266923
   },
@@ -54769,25 +54727,25 @@
   },
   "43250": {
     "stop_id": "43250",
-    "stop_name": "Lawrence East Station",
+    "stop_name": "Lawrence East",
     "stop_lat": 43.74964,
     "stop_lon": -79.269965
   },
   "43251": {
     "stop_id": "43251",
-    "stop_name": "Lawrence East Station",
+    "stop_name": "Lawrence East",
     "stop_lat": 43.749381,
     "stop_lon": -79.270003
   },
   "43252": {
     "stop_id": "43252",
-    "stop_name": "Ellesmere Station",
+    "stop_name": "Ellesmere",
     "stop_lat": 43.766819,
     "stop_lon": -79.27646
   },
   "43253": {
     "stop_id": "43253",
-    "stop_name": "Ellesmere Station",
+    "stop_name": "Ellesmere",
     "stop_lat": 43.76647,
     "stop_lon": -79.276535
   },
