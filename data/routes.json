@@ -832,13 +832,6 @@
     "route_type": 3,
     "route_color": "ed1c24"
   },
-  "124": {
-    "route_id": "124",
-    "route_short_name": "124",
-    "route_long_name": "Sunnybrook",
-    "route_type": 3,
-    "route_color": "ed1c24"
-  },
   "125": {
     "route_id": "125",
     "route_short_name": "125",
@@ -1048,34 +1041,6 @@
     "route_long_name": "Underhill",
     "route_type": 3,
     "route_color": "ed1c24"
-  },
-  "200": {
-    "route_id": "200",
-    "route_short_name": "200",
-    "route_long_name": "Toronto Zoo",
-    "route_type": 3,
-    "route_color": "e472ac"
-  },
-  "201": {
-    "route_id": "201",
-    "route_short_name": "201",
-    "route_long_name": "Bluffer's Park",
-    "route_type": 3,
-    "route_color": "e472ac"
-  },
-  "202": {
-    "route_id": "202",
-    "route_short_name": "202",
-    "route_long_name": "Cherry Beach",
-    "route_type": 3,
-    "route_color": "e472ac"
-  },
-  "203": {
-    "route_id": "203",
-    "route_short_name": "203",
-    "route_long_name": "High Park",
-    "route_type": 3,
-    "route_color": "e472ac"
   },
   "300": {
     "route_id": "300",
@@ -1364,13 +1329,6 @@
     "route_type": 0,
     "route_color": "ed1c24"
   },
-  "508": {
-    "route_id": "508",
-    "route_short_name": "508",
-    "route_long_name": "Lake Shore",
-    "route_type": 0,
-    "route_color": "ed1c24"
-  },
   "509": {
     "route_id": "509",
     "route_short_name": "509",
@@ -1430,14 +1388,14 @@
   "903": {
     "route_id": "903",
     "route_short_name": "903",
-    "route_long_name": "Kennedy Stn-Scarborough Express",
+    "route_long_name": "Kennedy-Progress Express",
     "route_type": 3,
     "route_color": "00a651"
   },
   "904": {
     "route_id": "904",
     "route_short_name": "904",
-    "route_long_name": "Sheppard-Kennedy Express",
+    "route_long_name": "Don Mills-Scarborough Express",
     "route_type": 3,
     "route_color": "00a651"
   },
@@ -1515,6 +1473,13 @@
     "route_id": "941",
     "route_short_name": "941",
     "route_long_name": "Keele Express",
+    "route_type": 3,
+    "route_color": "00a651"
+  },
+  "943": {
+    "route_id": "943",
+    "route_short_name": "943",
+    "route_long_name": "Kennedy Express",
     "route_type": 3,
     "route_color": "00a651"
   },
