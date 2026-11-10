@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-10T00:32:48.528337Z",
+  "generated_at": "2026-11-10T22:05:34.508014Z",
   "retention_days": 60,
   "cleanup_results": {
-    "deleted_count": 2,
+    "deleted_count": 0,
     "remaining_count": 58
   },
   "available_recordings": {
